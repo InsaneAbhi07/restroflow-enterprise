@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Deep navy primary */
+  --color-navy-50: #f0f5fb;
+  --color-navy-100: #dce7f4;
+  --color-navy-200: #b9cfe8;
+  --color-navy-300: #8badd6;
+  --color-navy-400: #5784bf;
+  --color-navy-500: #3666a6;
+  --color-navy-600: #264f8a;
+  --color-navy-700: #1d3f70;
+  --color-navy-800: #15315a;
+  --color-navy-900: #0f2a4a;
+  --color-navy-950: #0a1c33;
+
+  /* Teal accent */
+  --color-brand-50: #effcf9;
+  --color-brand-100: #c9f6ec;
+  --color-brand-200: #94ecda;
+  --color-brand-300: #57dbc3;
+  --color-brand-400: #2dc4ab;
+  --color-brand-500: #14a891;
+  --color-brand-600: #0d8776;
+  --color-brand-700: #0f6c60;
+  --color-brand-800: #11564e;
+  --color-brand-900: #124841;
+
+  --shadow-card: 0 1px 2px rgba(15, 42, 74, 0.04), 0 1px 3px rgba(15, 42, 74, 0.06);
+  --shadow-pop: 0 10px 30px -10px rgba(15, 42, 74, 0.25), 0 4px 10px -4px rgba(15, 42, 74, 0.1);
+
+  --animate-fade-in: fade-in 0.18s ease-out;
+  --animate-slide-up: slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-left: slide-left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pop: pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes slide-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+  @keyframes slide-left { from { transform: translateX(100%) } to { transform: none } }
+  @keyframes pop { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: none } }
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+  font-size: 13px;
+  font-feature-settings: "cv11", "ss01";
+}
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+.page-enter { animation: var(--animate-slide-up); }
+.tabular { font-variant-numeric: tabular-nums; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Veg / non-veg marks (Indian FSSAI style) */
+.veg-mark, .nonveg-mark { display: inline-flex; width: 12px; height: 12px; border: 1.5px solid; border-radius: 2px; align-items: center; justify-content: center; flex-shrink: 0; background: #fff; }
+.veg-mark { border-color: #16a34a; }
+.veg-mark::after { content: ""; width: 6px; height: 6px; border-radius: 99px; background: #16a34a; }
+.nonveg-mark { border-color: #b45309; }
+.nonveg-mark::after { content: ""; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-bottom: 6px solid #b45309; }
+
+/* Thermal paper look */
+.thermal {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px; line-height: 1.45; color: #111;
+  background: #fff;
+  width: 80mm; max-width: 100%;
+}
+.thermal.w58 { width: 58mm; font-size: 10px; }
+.thermal-edge { background: radial-gradient(circle at 6px -2px, transparent 6px, #fff 6.5px) repeat-x; background-size: 12px 10px; height: 10px; }
+.dash { border-top: 1px dashed #333; margin: 6px 0; }
+
+/* Print only the print area */
+#print-root { display: none; }
+@media print {
+  @page { size: 80mm auto; margin: 0; }
+  body * { visibility: hidden !important; }
+  #print-root, #print-root * { visibility: visible !important; }
+  #print-root { display: block !important; position: absolute; left: 0; top: 0; }
+  #print-root.a4 { width: 100%; }
+}
