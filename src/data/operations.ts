@@ -178,7 +178,7 @@ export const seedApprovals = (): Approval[] => [
   { id: 'ap1', at: Date.now() - 18 * 60000, type: 'Discount', title: '20% discount on Bill B4131 (Table G3)', by: 'Neha Gupta', outletId: 'o1', amount: 412, status: 'Pending' },
   { id: 'ap2', at: Date.now() - 45 * 60000, type: 'Stock Transfer', title: 'TRF-0416 · Highway → Main Branch (Fish, Chicken)', by: 'Amit Verma', outletId: 'o1', status: 'Pending', ref: 'st5' },
   { id: 'ap3', at: Date.now() - 90 * 60000, type: 'Purchase Order', title: 'PO/25-26/1183 · Spice Route Traders', by: 'Priya Sharma', outletId: 'o4', amount: 18640, status: 'Pending' },
-  { id: 'ap4', at: Date.now() - 3 * 36e5, type: 'Leave', title: 'Ritu Saxena · 3 days casual leave', by: 'Ritu Saxena', outletId: 'o2', status: 'Pending' },
+  { id: 'ap4', at: Date.now() - 3 * 36e5, type: 'Leave', title: 'Ritu Saxena · 3 days casual leave', by: 'Ritu Saxena', outletId: 'o2', status: 'Pending', ref: 'lr1' },
   { id: 'ap5', at: Date.now() - 5 * 36e5, type: 'Attendance Correction', title: 'Arjun Nair · missed check-out on 29 Sep', by: 'Arjun Nair', outletId: 'o2', status: 'Pending' },
   { id: 'ap6', at: Date.now() - 6 * 36e5, type: 'Resettlement', title: 'Bill B4108 · Cash → UPI', by: 'Kavita Joshi', outletId: 'o2', amount: 1260, status: 'Pending' },
 ]

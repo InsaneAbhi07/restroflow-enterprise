@@ -5,6 +5,7 @@ import { cn, fmtDate, isoDate } from '@/lib/format'
 import { ATT_COLOR, AttLegend, MonthCalendar, SHIFT_LABEL, fmtHours, hm12, summarize, workedHours } from '@/pages/attendance/attUtils'
 import { useMe, useMobile } from './ctx'
 import { MCard, MHeader, SectionTitle, useClock } from './ui'
+import { MobileLeave } from './MobileLeave'
 
 export function AttendanceScreen() {
   const { emp, outlet } = useMe()
@@ -96,6 +97,8 @@ export function AttendanceScreen() {
           <AttLegend className="mt-3" />
           <p className="mt-2 text-[12px] text-slate-500">Attendance this month: <b className="text-slate-800">{sum.pct.toFixed(0)}%</b>{sum.ot > 0 && <> · Overtime <b className="text-slate-800">{sum.ot.toFixed(1)} h</b></>}</p>
         </MCard>
+
+        <MobileLeave />
 
         <SectionTitle>History</SectionTitle>
         <MCard className="divide-y divide-slate-100 p-0">

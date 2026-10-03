@@ -11,8 +11,11 @@ import { CalendarTab } from './CalendarTab'
 import { MethodsTab } from './MethodsTab'
 import { ReportsTab } from './ReportsTab'
 import { RecordFlowModal } from './RecordFlowModal'
+import { LeaveTab } from './LeaveTab'
+import { ApplyLeaveModal } from './LeaveForms'
+import { useLeave } from './leaveStore'
 
-type TabKey = 'daily' | 'calendar' | 'methods' | 'reports'
+type TabKey = 'daily' | 'calendar' | 'leave' | 'methods' | 'reports'
 const DEPTS: Department[] = ['Service', 'Kitchen', 'Billing', 'Management', 'Stores', 'Housekeeping', 'HR & Admin', 'Accounts']
 
 export default function Attendance() {
@@ -27,9 +30,12 @@ export default function Attendance() {
   const [outlet, setOutlet] = useState('all')
   const [dept, setDept] = useState<'all' | Department>('all')
   const [record, setRecord] = useState(false)
+  const [applyLeave, setApplyLeave] = useState(false)
+  const leaveRequests = useLeave((s) => s.requests)
 
   const emps = useMemo(() => employees.filter((e) => e.status !== 'Inactive' && outletIds.includes(e.outletId) && (outlet === 'all' || e.outletId === outlet) && (dept === 'all' || e.department === dept)), [employees, outletIds, outlet, dept])
   const empIds = useMemo(() => new Set(emps.map((e) => e.id)), [emps])
+  const pendingLeave = leaveRequests.filter((r) => r.status === 'Pending' && empIds.has(r.employeeId)).length
   const dayRecs = useMemo(() => attendance.filter((a) => a.date === date && empIds.has(a.employeeId)), [attendance, date, empIds])
   const monthOt = useMemo(() => attendance.filter((a) => a.date.startsWith(date.slice(0, 7)) && a.date <= date && empIds.has(a.employeeId)).reduce((s, a) => s + (a.ot ?? 0), 0), [attendance, date, empIds])
 
@@ -48,6 +54,7 @@ export default function Attendance() {
         breadcrumbs={[{ label: 'People & HR' }, { label: 'Attendance' }]}
         actions={<>
           <Button icon={<Download className="size-3.5" />} disabled={!can('attendance', 'export')} onClick={() => toast.success('Attendance exported', `attendance_${date}.xlsx downloaded`)}>Export</Button>
+          <Button icon={<PlaneTakeoff className="size-3.5" />} disabled={!can('attendance', 'create')} onClick={() => setApplyLeave(true)}>Apply leave</Button>
           <Button variant="primary" icon={<Fingerprint className="size-3.5" />} disabled={!can('attendance', 'create')} onClick={() => setRecord(true)}>Record attendance</Button>
         </>} />
 
@@ -82,16 +89,19 @@ export default function Attendance() {
       <Tabs<TabKey> className="mb-4" value={tab} onChange={setTab} items={[
         { value: 'daily', label: 'Daily register', icon: <CalendarCheck2 className="size-3.5" />, count: emps.length },
         { value: 'calendar', label: 'Calendar', icon: <CalendarDays className="size-3.5" /> },
+        { value: 'leave', label: 'Leave', icon: <PlaneTakeoff className="size-3.5" />, count: pendingLeave || undefined },
         { value: 'methods', label: 'Attendance methods', icon: <Fingerprint className="size-3.5" /> },
         { value: 'reports', label: 'Reports', icon: <FileBarChart className="size-3.5" /> },
       ]} />
 
       {tab === 'daily' && <DailyRegister emps={emps} date={date} showOutlet={isAll} />}
       {tab === 'calendar' && <CalendarTab emps={emps} />}
+      {tab === 'leave' && <LeaveTab emps={emps} showOutlet={isAll} />}
       {tab === 'methods' && <MethodsTab emps={emps} />}
       {tab === 'reports' && <ReportsTab emps={emps} />}
 
       <RecordFlowModal open={record} onClose={() => setRecord(false)} emps={emps} />
+      <ApplyLeaveModal open={applyLeave} onClose={() => setApplyLeave(false)} />
     </div>
   )
 }
