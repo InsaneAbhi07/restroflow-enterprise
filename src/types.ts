@@ -36,7 +36,7 @@ export interface Employee {
 export type Action = 'view' | 'create' | 'edit' | 'delete' | 'approve' | 'export' | 'print'
 export type ModuleKey =
   | 'dashboard' | 'pos' | 'kot' | 'settlement' | 'tables' | 'menu' | 'inventory' | 'purchase' | 'transfer' | 'recipes'
-  | 'reports' | 'customers' | 'employees' | 'attendance' | 'payroll' | 'qr' | 'users' | 'outlets' | 'settings' | 'audit'
+  | 'reports' | 'customers' | 'employees' | 'attendance' | 'payroll' | 'qr' | 'users' | 'outlets' | 'settings' | 'audit' | 'hotel'
 export interface Role {
   id: ID; name: string; description: string; scope: 'Organization' | 'Region' | 'Outlet'; color: string
   permissions: Partial<Record<ModuleKey, Action[]>>; system?: boolean

@@ -25,6 +25,9 @@ import Audit from '@/pages/audit/Audit'
 import Users from '@/pages/users/Users'
 import Roles from '@/pages/users/Roles'
 import Settings from '@/pages/settings/Settings'
+import FrontDesk from '@/pages/hotel/FrontDesk'
+import Reservations from '@/pages/hotel/Reservations'
+import RoomSetup from '@/pages/hotel/RoomSetup'
 import StaffApp from '@/mobile/StaffApp'
 import Login from '@/pages/auth/Login'
 
@@ -46,6 +49,9 @@ export default function App() {
           <Route path="tables" element={<Tables />} />
           <Route path="qr" element={<QrAdmin />} />
           <Route path="customers" element={<Customers />} />
+          <Route path="hotel" element={<FrontDesk />} />
+          <Route path="hotel/reservations" element={<Reservations />} />
+          <Route path="hotel/setup" element={<RoomSetup />} />
           <Route path="menu" element={<Menu />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="inventory/purchases" element={<Purchases />} />

@@ -15,6 +15,7 @@ import { cn } from '@/lib/format'
 import { simulateCheckIn, simulatePayroll, simulateSampleOrder, simulateSettlement, simulateTableOrder, simulateTransfer } from '@/lib/simulate'
 import { toast } from '@/store/toast'
 import StaffApp from '@/mobile/StaffApp'
+import { useHotel } from '@/pages/hotel/hotelStore'
 
 /* ------------------------------------------------------------------ Toaster */
 export function Toaster() {
@@ -214,7 +215,7 @@ export function DemoPanel() {
           Reset all orders, stock, attendance and settings to the original sample data?
           <div className="flex shrink-0 gap-2">
             <Button size="sm" onClick={() => setConfirm(false)}>No</Button>
-            <Button size="sm" variant="danger" onClick={() => { reset(); setConfirm(false); toast.success('Demo data reset') }}>Reset</Button>
+            <Button size="sm" variant="danger" onClick={() => { reset(); useHotel.getState().reset(); setConfirm(false); toast.success('Demo data reset') }}>Reset</Button>
           </div>
         </div>
       )}

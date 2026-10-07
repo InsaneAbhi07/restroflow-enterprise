@@ -472,7 +472,20 @@ export const useStore = create<Store>()(
     {
       name: 'restroflow-demo-v1',
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
+      // v2 adds the Hotel module: grant its permissions to existing roles and add the Front Desk role / user
+      migrate: (persisted, version) => {
+        const st = persisted as Data
+        if (version < 2 && st?.roles) {
+          st.roles = st.roles.map((r) => {
+            const seedRole = ROLES.find((x) => x.id === r.id)
+            return seedRole?.permissions.hotel && !r.permissions.hotel ? { ...r, permissions: { ...r.permissions, hotel: [...seedRole.permissions.hotel] } } : r
+          })
+          ROLES.filter((r) => !st.roles.some((x) => x.id === r.id)).forEach((r) => st.roles.push(JSON.parse(JSON.stringify(r))))
+          USERS.filter((u) => !st.users.some((x) => x.id === u.id)).forEach((u) => st.users.push({ ...u }))
+        }
+        return st as Store
+      },
     },
   ),
 )

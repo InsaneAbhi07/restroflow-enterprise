@@ -78,6 +78,7 @@ export const MODULES: { key: ModuleKey; label: string; group: string }[] = [
   { key: 'attendance', label: 'Attendance', group: 'People & HR' },
   { key: 'payroll', label: 'Payroll', group: 'People & HR' },
   { key: 'reports', label: 'Reports & Analytics', group: 'Insights' },
+  { key: 'hotel', label: 'Hotel / Front Office', group: 'Hotel' },
   { key: 'audit', label: 'Audit Logs', group: 'Insights' },
   { key: 'users', label: 'User Management', group: 'Administration' },
   { key: 'outlets', label: 'Outlet Management', group: 'Administration' },
@@ -102,12 +103,12 @@ export const ROLES: Role[] = [
     permissions: {
       dashboard: VIEW, pos: FULL, kot: FULL, settlement: FULL, tables: FULL, qr: ['view', 'edit'], customers: FULL, menu: ['view', 'edit'],
       inventory: ['view', 'create', 'edit', 'approve', 'export', 'print'], purchase: ['view', 'create', 'edit', 'approve', 'print'], transfer: ['view', 'create', 'approve', 'print'],
-      recipes: VIEW, employees: ['view', 'edit'], attendance: ['view', 'create', 'edit', 'approve', 'export'], payroll: VIEW, reports: VE, audit: VIEW,
+      recipes: VIEW, employees: ['view', 'edit'], attendance: ['view', 'create', 'edit', 'approve', 'export'], payroll: VIEW, reports: VE, audit: VIEW, hotel: FULL,
     },
   },
   {
     id: 'r_cashier', name: 'Cashier', description: 'Billing counter: create bills, generate KOTs and settle payments.', scope: 'Outlet', color: '#7c3aed', system: true,
-    permissions: { dashboard: VIEW, pos: ['view', 'create', 'edit', 'print'], kot: ['view', 'create', 'print'], settlement: ['view', 'create', 'print'], tables: ['view', 'edit'], customers: ['view', 'create'], menu: VIEW, reports: VIEW },
+    permissions: { dashboard: VIEW, pos: ['view', 'create', 'edit', 'print'], kot: ['view', 'create', 'print'], settlement: ['view', 'create', 'print'], tables: ['view', 'edit'], customers: ['view', 'create'], menu: VIEW, reports: VIEW, hotel: VIEW },
   },
   {
     id: 'r_waiter', name: 'Waiter', description: 'Takes orders on the staff app and manages assigned tables.', scope: 'Outlet', color: '#ea580c', system: true,
@@ -127,11 +128,15 @@ export const ROLES: Role[] = [
   },
   {
     id: 'r_accounts', name: 'Accountant', description: 'Read access to sales and purchases, payroll approval and financial reports.', scope: 'Organization', color: '#65a30d', system: true,
-    permissions: { dashboard: VIEW, settlement: VE, purchase: VE, inventory: VE, payroll: ['view', 'approve', 'export', 'print'], reports: VE, customers: VIEW, audit: VE },
+    permissions: { dashboard: VIEW, settlement: VE, purchase: VE, inventory: VE, payroll: ['view', 'approve', 'export', 'print'], reports: VE, customers: VIEW, audit: VE, hotel: VE },
   },
   {
     id: 'r_custom', name: 'Shift Supervisor', description: 'Custom role — POS, tables and attendance for a shift lead.', scope: 'Outlet', color: '#4f46e5',
     permissions: { dashboard: VIEW, pos: VCE, kot: VCE, tables: FULL, attendance: ['view', 'create'], reports: VIEW },
+  },
+  {
+    id: 'r_frontdesk', name: 'Front Desk Agent', description: 'Hotel front office: reservations, check-in / check-out, guest folios and room status.', scope: 'Outlet', color: '#0e7490', system: true,
+    permissions: { dashboard: VIEW, hotel: ['view', 'create', 'edit', 'print'], customers: ['view', 'create'], pos: VIEW, attendance: VIEW },
   },
 ]
 
@@ -150,8 +155,9 @@ export const USERS: User[] = [
   { id: 'u12', name: 'Pooja Arora', email: 'pooja@grandkitchen.in', roleId: 'r_outlet', outletIds: ['o3'], status: 'Active', lastActive: '5 min ago', employeeId: 'e17', pin: '1717', phone: '+91 98100 17171', color: '#14a891' },
   { id: 'u13', name: 'Gurpreet Singh', email: 'gurpreet@grandkitchen.in', roleId: 'r_outlet', outletIds: ['o4'], status: 'Active', lastActive: '18 min ago', employeeId: 'e21', pin: '2121', phone: '+91 98100 21212', color: '#14a891' },
   { id: 'u14', name: 'Arjun Nair', email: 'arjun@grandkitchen.in', roleId: 'r_waiter', outletIds: ['o2'], status: 'Active', lastActive: 'Online', employeeId: 'e14', pin: '1414', phone: '+91 98100 14141', color: '#ea580c' },
+  { id: 'u16', name: 'Meera Kapoor', email: 'meera@grandkitchen.in', roleId: 'r_frontdesk', outletIds: ['o1'], status: 'Active', lastActive: 'Online', pin: '1616', phone: '+91 98100 16161', color: '#0e7490' },
   { id: 'u15', name: 'Manish Tiwari', email: 'manish@grandkitchen.in', roleId: 'r_custom', outletIds: ['o3'], status: 'Inactive', lastActive: '12 days ago', employeeId: 'e18', pin: '1818', phone: '+91 98100 18181', color: '#4f46e5' },
 ]
 
-/** The 9 accounts shown in the demo user switcher */
-export const DEMO_USER_IDS = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9']
+/** The 10 accounts shown in the demo user switcher */
+export const DEMO_USER_IDS = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u16']

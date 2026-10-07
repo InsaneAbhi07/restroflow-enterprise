@@ -21,6 +21,14 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    label: 'Hotel',
+    items: [
+      { label: 'Front Desk', to: '/hotel', icon: 'ConciergeBell', module: 'hotel' },
+      { label: 'Reservations', to: '/hotel/reservations', icon: 'CalendarRange', module: 'hotel' },
+      { label: 'Rooms & Tariff', to: '/hotel/setup', icon: 'BedDouble', module: 'hotel' },
+    ],
+  },
+  {
     label: 'Menu & Inventory',
     items: [
       { label: 'Menu', to: '/menu', icon: 'BookOpen', module: 'menu' },
