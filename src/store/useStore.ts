@@ -247,7 +247,7 @@ export const useStore = create<Store>()(
         if (!pending.length) return null
         const no = 'K' + s.seq.kot
         const kot: Kot = {
-          id: uid('kot'), no, orderId, orderNo: o.no, outletId: o.outletId, tableLabel: o.tableLabel ?? (o.type === 'Dine-in' ? '-' : o.type),
+          id: uid('kot'), no, orderId, orderNo: o.no, outletId: o.outletId, tableLabel: o.tableLabel ?? (o.type === 'Room Service' && o.roomNo ? 'R' + o.roomNo : o.type === 'Dine-in' ? '-' : o.type),
           type: o.type, source: o.source, waiterName: o.waiterName ?? userName(s), createdAt: Date.now(), updatedAt: Date.now(), status: 'New', station: kotStation(s.menu, pending.map((i) => i.itemId)),
           items: pending.map((i) => ({ name: i.name, qty: i.qty, note: i.note, variant: i.variant, modifiers: i.modifiers?.map((m) => m.name), veg: i.veg })),
         }

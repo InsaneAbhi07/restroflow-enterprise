@@ -1,6 +1,6 @@
 import type React from 'react'
 import { useState } from 'react'
-import { Armchair, BadgePercent, Banknote, ChefHat, CreditCard, FileText, Minus, PauseCircle, Plus, Printer, QrCode, Save, ShoppingBag, SplitSquareHorizontal, StickyNote, Trash2, Users, Wallet, Bike, UtensilsCrossed, Lock, Clock, Receipt } from 'lucide-react'
+import { Armchair, BadgePercent, Banknote, ChefHat, CreditCard, FileText, Minus, PauseCircle, Plus, Printer, QrCode, Save, ShoppingBag, SplitSquareHorizontal, StickyNote, Trash2, Users, Wallet, Bike, UtensilsCrossed, Lock, Clock, Receipt, BedDouble, X, Coffee } from 'lucide-react'
 import { Badge, Button, Input, Kbd, Segmented, Select, StatusBadge, Toggle, VegMark } from '@/components/ui'
 import { useStore } from '@/store/useStore'
 import { waitersFor } from '@/data/operations'
@@ -11,9 +11,11 @@ import type { PosCtl } from './usePosOrder'
 import { CustomerPicker } from './CustomerPicker'
 import { usePosUI, type QuickPay } from './posStore'
 import { SOURCE_TONE } from './posUtils'
+import { useHotel } from '@/pages/hotel/hotelStore'
+import { mealAllowance } from '@/pages/hotel/roomBilling'
 
 export interface CartActions {
-  onTable: () => void; onDiscount: () => void; onCancelLine: (id: string, name: string) => void
+  onTable: () => void; onRoom: () => void; onDiscount: () => void; onCancelLine: (id: string, name: string) => void
   onSave: () => void; onHold: () => void; onKot: () => void; onKotPrint: () => void; onSaveBill: () => void; onSettle: () => void; onQuickSettle: () => void
 }
 
@@ -24,11 +26,19 @@ const QP: { id: QuickPay; label: string; icon: React.ReactNode }[] = [
   { id: 'Due', label: 'Due', icon: <Wallet className="size-3.5" /> },
   { id: 'Part', label: 'Part', icon: <SplitSquareHorizontal className="size-3.5" /> },
 ]
+const QP_ROOM = { id: 'Room' as const, label: 'Room', icon: <BedDouble className="size-3.5" /> }
 
-export function CartPanel({ ctl, readOnly, actions, customerSignal }: { ctl: PosCtl; readOnly: boolean; actions: CartActions; customerSignal: number }) {
+export function CartPanel({ ctl, readOnly, actions, customerSignal, isHotel }: { ctl: PosCtl; readOnly: boolean; actions: CartActions; customerSignal: number; isHotel: boolean }) {
   const settings = useStore((s) => s.settings)
   const { view, totals: t, type, order } = ctl
-  const { quickPay, setQuickPay } = usePosUI()
+  const { quickPay: qpRaw, setQuickPay } = usePosUI()
+  const quickPay = qpRaw === 'Room' && !isHotel ? 'Cash' : qpRaw
+  const payModes = isHotel ? [...QP.slice(0, 3), QP_ROOM, ...QP.slice(3)] : QP
+  const stay = useHotel((s) => (view.resId ? s.reservations.find((r) => r.id === view.resId) : undefined))
+  const plan = useHotel((s) => s.plans.find((p) => p.id === stay?.planId))
+  const mealUse = useHotel((s) => s.mealUse)
+  const meal = mealAllowance(stay, plan, mealUse, order?.id)
+  const mealApplied = view.discount.reason?.startsWith('Meal plan')
   const [noteFor, setNoteFor] = useState<string | null>(null)
   const waiters = waitersFor(ctl.outletId)
   const items = view.items
@@ -43,7 +53,11 @@ export function CartPanel({ ctl, readOnly, actions, customerSignal }: { ctl: Pos
       <div className="space-y-2 border-b border-slate-200 px-3 pt-2.5 pb-2.5">
         <div className="flex items-center gap-2">
           <Segmented size="md" className="flex-1" value={type} onChange={(v: OrderType) => !dis && ctl.setType(v)}
-            items={[{ value: 'Dine-in', label: 'Dine-in', icon: <UtensilsCrossed className="size-3.5" /> }, { value: 'Takeaway', label: 'Takeaway', icon: <ShoppingBag className="size-3.5" /> }, { value: 'Delivery', label: 'Delivery', icon: <Bike className="size-3.5" /> }]} />
+            items={[
+              { value: 'Dine-in', label: 'Dine-in', icon: <UtensilsCrossed className="size-3.5" /> }, { value: 'Takeaway', label: isHotel ? 'Take' : 'Takeaway', icon: <ShoppingBag className="size-3.5" /> },
+              { value: 'Delivery', label: isHotel ? 'Deliv.' : 'Delivery', icon: <Bike className="size-3.5" /> },
+              ...(isHotel ? [{ value: 'Room Service' as OrderType, label: 'Room', icon: <BedDouble className="size-3.5" /> }] : []),
+            ]} />
         </div>
         <div className="flex items-center gap-2 text-[11.5px] text-slate-500">
           <span className="font-mono font-semibold text-slate-800">{order ? order.no : 'New order'}</span>
@@ -82,6 +96,35 @@ export function CartPanel({ ctl, readOnly, actions, customerSignal }: { ctl: Pos
               <Input disabled={dis} placeholder="Mobile" value={view.customerPhone ?? ''} onChange={(e) => ctl.patch({ customerPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
             </div>
             <Input disabled={dis} placeholder="Delivery address, landmark" value={view.note ?? ''} onChange={(e) => ctl.patch({ note: e.target.value })} />
+          </div>
+        )}
+
+        {type === 'Room Service' && (
+          <button disabled={dis} onClick={actions.onRoom}
+            className={cn('flex h-8 w-full items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold transition', view.roomNo ? 'border-sky-600 bg-sky-600 text-white' : 'border-dashed border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100')}>
+            <BedDouble className="size-3.5" />{view.roomNo ? `Room ${view.roomNo} · ${view.customerName ?? ''}` : 'Select room'}
+            {view.roomNo && <span className="ml-auto text-[11px] font-normal text-white/80">tray {inr(t.delivery)}</span>}
+          </button>
+        )}
+        {isHotel && type !== 'Room Service' && type !== 'Delivery' && (
+          view.resId ? (
+            <div className="flex h-8 items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 text-[12px] text-sky-800 ring-1 ring-sky-200">
+              <BedDouble className="size-3.5" />Hotel guest · <b>Room {view.roomNo}</b><span className="truncate">{view.customerName}</span>
+              {!dis && <button onClick={ctl.unlinkRoom} title="Unlink room" className="ml-auto rounded p-0.5 hover:bg-sky-100"><X className="size-3.5" /></button>}
+            </div>
+          ) : (
+            <button disabled={dis} onClick={actions.onRoom} className="flex h-7 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 text-[11.5px] font-medium text-slate-500 hover:border-sky-400 hover:text-sky-700">
+              <BedDouble className="size-3.5" />Hotel guest? Link room to charge bill / use meal plan
+            </button>
+          )
+        )}
+        {meal && !dis && (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11.5px] text-emerald-800 ring-1 ring-emerald-200">
+            <Coffee className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate"><b>{meal.plan.code}</b> {meal.plan.meals.toLowerCase()} · {inr(meal.left)} of {inr(meal.allowance)} left today</span>
+            {mealApplied
+              ? <button onClick={() => ctl.patch({ discount: { type: 'pct', value: 0 } })} className="font-semibold hover:underline">Remove</button>
+              : <button disabled={meal.left <= 0 || empty} onClick={() => ctl.patch({ discount: { type: 'flat', value: Math.min(meal.left, t.subtotal), reason: `Meal plan ${meal.plan.code} · Room ${view.roomNo}` } })} className="font-semibold hover:underline disabled:opacity-40 disabled:no-underline">Apply</button>}
           </div>
         )}
 
@@ -158,6 +201,7 @@ export function CartPanel({ ctl, readOnly, actions, customerSignal }: { ctl: Pos
         <Row l={<span className="inline-flex items-center gap-1.5">Service charge {settings.serviceCharge}%<Toggle size="sm" disabled={dis} checked={view.serviceCharge > 0} onChange={(v) => ctl.patch({ serviceCharge: v ? settings.serviceCharge : 0 })} /></span>} r={inr(t.service, true)} />
         <Row l={`CGST ${(live[0]?.gst ?? 5) / 2}% + SGST ${(live[0]?.gst ?? 5) / 2}%`} r={inr(t.cgst + t.sgst, true)} />
         {type === 'Delivery' && <Row l="Delivery charge" r={inr(t.delivery, true)} />}
+        {type === 'Room Service' && <Row l="Tray charge" r={inr(t.delivery, true)} />}
         {Math.abs(t.roundOff) > 0.004 && <Row l="Round off" r={(t.roundOff > 0 ? '+' : '−') + inr(Math.abs(t.roundOff), true)} />}
         <div className="mt-1 flex items-end justify-between border-t border-dashed border-slate-300 pt-1.5">
           <span className="text-[12px] font-semibold text-slate-800">Grand Total {pendingCount > 0 && order?.items.some((i) => i.kotNo) && <span className="ml-1 font-normal text-brand-600">· {pendingCount} new</span>}</span>
@@ -169,7 +213,7 @@ export function CartPanel({ ctl, readOnly, actions, customerSignal }: { ctl: Pos
       <div className="space-y-1.5 border-t border-slate-200 p-2.5">
         {settings.pos.quickPayModes && (
           <div className="flex items-center gap-1">
-            {QP.map((p) => (
+            {payModes.map((p) => (
               <label key={p.id} className={cn('flex h-7 flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border text-[11.5px] font-semibold transition', quickPay === p.id ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}>
                 <input type="radio" name="qp" className="sr-only" checked={quickPay === p.id} onChange={() => setQuickPay(p.id)} />
                 <span className={cn('size-2.5 rounded-full border-2', quickPay === p.id ? 'border-brand-500 bg-brand-500 shadow-[inset_0_0_0_1.5px_#fff]' : 'border-slate-300')} />{p.label}
@@ -187,8 +231,8 @@ export function CartPanel({ ctl, readOnly, actions, customerSignal }: { ctl: Pos
         </div>
         {settings.pos.quickPayModes && (
           <Button size="lg" variant="accent" block disabled={dis || empty} onClick={actions.onQuickSettle} className="justify-between"
-            icon={QP.find((p) => p.id === quickPay)?.icon}>
-            <span className="flex-1 text-left">{quickPay === 'Part' ? 'Split payment & Print' : `${quickPay} & Print`}</span>
+            icon={payModes.find((p) => p.id === quickPay)?.icon}>
+            <span className="flex-1 text-left">{quickPay === 'Part' ? 'Split payment & Print' : quickPay === 'Room' ? `Charge to Room${view.roomNo ? ' ' + view.roomNo : ''}` : `${quickPay} & Print`}</span>
             <span className="text-[15px] font-bold tabular">{inr(t.total)}</span>
           </Button>
         )}

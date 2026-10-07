@@ -164,7 +164,8 @@ export function Resettlement() {
                     {rows.map((r, i) => (
                       <div key={i} className="flex items-center gap-2">
                         <Select className="w-36" value={r.mode} onChange={(e) => setRows(rows.map((x, k) => (k === i ? { ...x, mode: e.target.value as PayMode } : x)))}>
-                          {MODES.map((m) => <option key={m}>{m}</option>)}
+                          {/* 'Room' only when the bill belongs to a hotel stay — the folio is adjusted automatically */}
+                          {MODES.concat(sel?.resId ? ['Room'] : []).map((m) => <option key={m}>{m}</option>)}
                         </Select>
                         <Input type="number" className="flex-1" value={r.amount} onChange={(e) => setRows(rows.map((x, k) => (k === i ? { ...x, amount: e.target.value } : x)))} />
                         <button disabled={rows.length === 1} onClick={() => setRows(rows.filter((_, k) => k !== i))} className="rounded-md p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30"><Trash2 className="size-3.5" /></button>

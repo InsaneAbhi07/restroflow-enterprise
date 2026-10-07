@@ -143,7 +143,7 @@ function PaymentHistory() {
           <SearchInput className="w-56" placeholder="Bill no or cashier…" value={q} onChange={(e) => setQ(e.target.value)} onClear={() => setQ('')} />
           <Select className="w-40" value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="">All modes</option>
-            {(['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Wallet', 'Due'] as PayMode[]).map((m) => <option key={m}>{m}</option>)}
+            {(['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Wallet', 'Due', 'Room'] as PayMode[]).map((m) => <option key={m}>{m}</option>)}
           </Select>
           <Button size="sm" className="ml-auto" icon={<Download className="size-3.5" />} onClick={() => toast.success('Payment register exported', `${rows.length} rows (simulated)`)}>Export</Button>
         </FilterBar>

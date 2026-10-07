@@ -25,7 +25,7 @@ export function KotDetailsModal({ kotId, onClose, editable, onAdvance, onPrint, 
       : kot.status === 'Ready' ? { label: 'Mark Served', icon: <HandPlatter className="size-3.5" />, v: 'warning' as const } : null
 
   return (
-    <Modal open onClose={onClose} size="md" icon={<ReceiptText />} title={`KOT ${kot.no} · ${kot.type === 'Dine-in' ? 'Table ' + kot.tableLabel : kot.type}`}
+    <Modal open onClose={onClose} size="md" icon={<ReceiptText />} title={`KOT ${kot.no} · ${kot.type === 'Dine-in' ? 'Table ' + kot.tableLabel : kot.type === 'Room Service' ? 'Room ' + kot.tableLabel.replace(/^R/, '') : kot.type}`}
       subtitle={`${outlet?.short ?? ''} · ${kot.station}`}
       footer={
         <>

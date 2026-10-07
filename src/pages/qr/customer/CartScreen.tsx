@@ -5,8 +5,8 @@ import { cn, inr } from '@/lib/format'
 import { FoodArt, QtyStepper } from './bits'
 import { unitPrice, type CartLine } from './qrSession'
 
-export function CartScreen({ lines, categories, totals, serviceCharge, tableLabel, embedded, note, setNote, pax, setPax, onQty, onBack, onPlace, placing, appending }: {
-  lines: CartLine[]; categories: MenuCategory[]; totals: Totals; serviceCharge: number; tableLabel: string; embedded?: boolean
+export function CartScreen({ lines, categories, totals, serviceCharge, tableLabel, inRoom, embedded, note, setNote, pax, setPax, onQty, onBack, onPlace, placing, appending }: {
+  lines: CartLine[]; categories: MenuCategory[]; totals: Totals; serviceCharge: number; tableLabel: string; inRoom?: boolean; embedded?: boolean
   note: string; setNote: (v: string) => void; pax: number; setPax: (v: number) => void
   onQty: (key: string, qty: number) => void; onBack: () => void; onPlace: () => void; placing: boolean; appending: boolean
 }) {
@@ -16,7 +16,7 @@ export function CartScreen({ lines, categories, totals, serviceCharge, tableLabe
         <button onClick={onBack} className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"><ChevronLeft className="size-5" /></button>
         <div>
           <div className="text-[16px] font-bold text-navy-900">Your cart</div>
-          <div className="text-[11.5px] font-medium text-brand-600">Table {tableLabel} · {totals.qty} items</div>
+          <div className="text-[11.5px] font-medium text-brand-600">{tableLabel} · {totals.qty} items</div>
         </div>
       </div>
 
@@ -46,7 +46,7 @@ export function CartScreen({ lines, categories, totals, serviceCharge, tableLabe
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Allergies, spice level, serve starters first…"
             className="mt-2 w-full resize-none rounded-2xl bg-slate-50 px-3.5 py-2.5 text-[13.5px] outline-none ring-1 ring-slate-200 focus:ring-brand-300" />
           <div className="mt-3 flex items-center justify-between">
-            <span className="flex items-center gap-2 text-[13.5px] font-semibold text-slate-800"><Users className="size-4 text-slate-400" />Guests at table</span>
+            <span className="flex items-center gap-2 text-[13.5px] font-semibold text-slate-800"><Users className="size-4 text-slate-400" />{inRoom ? 'Guests' : 'Guests at table'}</span>
             <QtyStepper value={pax} onChange={(v) => setPax(Math.max(1, Math.min(20, v)))} size="sm" />
           </div>
         </div>
@@ -58,11 +58,12 @@ export function CartScreen({ lines, categories, totals, serviceCharge, tableLabe
             <div className="flex justify-between"><span>CGST</span><span>{inr(totals.cgst, true)}</span></div>
             <div className="flex justify-between"><span>SGST</span><span>{inr(totals.sgst, true)}</span></div>
             {totals.service > 0 && <div className="flex justify-between"><span>Service charge ({serviceCharge}%)</span><span>{inr(totals.service, true)}</span></div>}
+            {totals.delivery > 0 && <div className="flex justify-between"><span>Tray charge</span><span>{inr(totals.delivery, true)}</span></div>}
             {Math.abs(totals.roundOff) > 0.001 && <div className="flex justify-between text-slate-400"><span>Round off</span><span>{totals.roundOff > 0 ? '+' : ''}{totals.roundOff.toFixed(2)}</span></div>}
             <div className="mt-2 flex justify-between border-t border-dashed border-slate-200 pt-2.5 text-[16px] font-extrabold text-navy-900"><span>To pay</span><span>{inr(totals.total)}</span></div>
           </div>
         </div>
-        <p className="px-2 text-center text-[11px] text-slate-400">Pay at the table after your meal · UPI, cards & cash accepted</p>
+        <p className="px-2 text-center text-[11px] text-slate-400">{inRoom ? 'Added to your room bill · settle at check-out' : 'Pay at the table after your meal · UPI, cards & cash accepted'}</p>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-4 pt-3 backdrop-blur">

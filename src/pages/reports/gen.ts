@@ -38,6 +38,7 @@ export const PAY_SHARE: { name: string; share: number; color: string }[] = [
   { name: 'Debit Card', share: 0.07, color: CHART.sky },
   { name: 'Wallet (Paytm)', share: 0.03, color: CHART.pink },
   { name: 'Due / Credit', share: 0.02, color: CHART.amber },
+  { name: 'Charged to Room', share: 0, color: CHART.lime },
 ]
 export const CASHIERS: Record<string, string[]> = {
   o1: ['Neha Gupta', 'Amit Verma'], o2: ['Kavita Joshi', 'Sanjay Malhotra'], o3: ['Manish Tiwari', 'Pooja Arora'], o4: ['Harpreet Kaur', 'Gurpreet Singh'],
@@ -137,7 +138,7 @@ export function salesBase(ctx: ReportCtx): SalesBase {
   const pay: NamedAmt[] = PAY_SHARE.map((p) => ({ name: p.name, color: p.color, value: synth.total * p.share, count: Math.round(synth.orders * p.share) }))
   live.forEach((o) => o.payments.forEach((p) => {
     const name = p.mode === 'Wallet' && (o.source === 'Swiggy' || o.source === 'Zomato') ? 'Online (Swiggy/Zomato)'
-      : p.mode === 'Wallet' ? 'Wallet (Paytm)' : p.mode === 'Due' ? 'Due / Credit' : p.mode
+      : p.mode === 'Wallet' ? 'Wallet (Paytm)' : p.mode === 'Due' ? 'Due / Credit' : p.mode === 'Room' ? 'Charged to Room' : p.mode
     const row = pay.find((x) => x.name === name)
     if (row) { row.value += p.amount; row.count += 1 }
   }))

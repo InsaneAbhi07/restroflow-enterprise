@@ -13,8 +13,8 @@ const STEPS = [
 ]
 const idx = (s: Kot['status']) => (s === 'New' ? 0 : s === 'Preparing' ? 1 : s === 'Ready' ? 2 : s === 'Served' ? 3 : -1)
 
-export function TrackScreen({ orders, kots, tableLabel, embedded, onBack, onOrderMore, onCallWaiter, onRequestBill }: {
-  orders: Order[]; kots: Kot[]; tableLabel: string; embedded?: boolean
+export function TrackScreen({ orders, kots, tableLabel, inRoom, embedded, onBack, onOrderMore, onCallWaiter, onRequestBill }: {
+  orders: Order[]; kots: Kot[]; tableLabel: string; inRoom?: boolean; embedded?: boolean
   onBack: () => void; onOrderMore: () => void; onCallWaiter: () => void; onRequestBill: () => void
 }) {
   const now = useNow(1000)
@@ -34,7 +34,7 @@ export function TrackScreen({ orders, kots, tableLabel, embedded, onBack, onOrde
       <div className={cn('bg-gradient-to-b from-navy-900 to-navy-800 px-4 pb-16 text-white', embedded ? 'pt-11' : 'pt-3')}>
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="flex size-9 items-center justify-center rounded-full bg-white/10"><ChevronLeft className="size-5" /></button>
-          <div className="flex-1"><div className="text-[15px] font-bold">Order status</div><div className="text-[11.5px] text-white/60">Table {tableLabel} · {order?.no}</div></div>
+          <div className="flex-1"><div className="text-[15px] font-bold">Order status</div><div className="text-[11.5px] text-white/60">{tableLabel} · {order?.no}</div></div>
           <span className="flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium"><span className="size-1.5 animate-pulse rounded-full bg-brand-400" />Live</span>
         </div>
         <div className="mt-5 flex items-center gap-4">
@@ -43,7 +43,7 @@ export function TrackScreen({ orders, kots, tableLabel, embedded, onBack, onOrde
           </div>
           <div>
             <div className="text-[20px] font-extrabold leading-tight">{settled ? 'Paid · Thank you!' : billed ? 'Bill is ready' : cur.label}</div>
-            <div className="text-[13px] text-white/70">{settled ? 'Hope to see you again soon' : billed ? 'Your server will bring it shortly' : step < 2 ? `Estimated ${eta} min` : cur.sub}</div>
+            <div className="text-[13px] text-white/70">{settled ? (inRoom ? 'Added to your room bill' : 'Hope to see you again soon') : billed ? 'Your server will bring it shortly' : step < 2 ? `Estimated ${eta} min` : inRoom && cur.key === 'Ready' ? 'On its way to your room' : cur.sub}</div>
           </div>
         </div>
       </div>
@@ -74,8 +74,8 @@ export function TrackScreen({ orders, kots, tableLabel, embedded, onBack, onOrde
 
         {/* actions */}
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={onCallWaiter} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-white text-[14px] font-bold text-navy-900 shadow-sm ring-1 ring-slate-200 active:scale-[.98]"><BellRing className="size-4.5 text-brand-600" />Call waiter</button>
-          <button onClick={onRequestBill} disabled={settled} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-white text-[14px] font-bold text-navy-900 shadow-sm ring-1 ring-slate-200 active:scale-[.98] disabled:opacity-50"><Receipt className="size-4.5 text-brand-600" />Request bill</button>
+          <button onClick={onCallWaiter} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-white text-[14px] font-bold text-navy-900 shadow-sm ring-1 ring-slate-200 active:scale-[.98]"><BellRing className="size-4.5 text-brand-600" />{inRoom ? 'Call reception' : 'Call waiter'}</button>
+          <button onClick={onRequestBill} disabled={settled} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-white text-[14px] font-bold text-navy-900 shadow-sm ring-1 ring-slate-200 active:scale-[.98] disabled:opacity-50"><Receipt className="size-4.5 text-brand-600" />{inRoom ? 'Room bill' : 'Request bill'}</button>
         </div>
 
         {/* kots */}

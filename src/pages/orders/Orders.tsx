@@ -15,7 +15,7 @@ type Tab = 'running' | 'settled' | 'online' | 'cancelled' | 'all'
 const RUNNING = ['Running', 'Billed', 'Hold', 'Draft']
 const ONLINE: OrderSource[] = ['Swiggy', 'Zomato', 'QR Order']
 const SOURCES: OrderSource[] = ['POS', 'Waiter App', 'QR Order', 'Swiggy', 'Zomato', 'Phone']
-const MODES: PayMode[] = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Wallet', 'Due']
+const MODES: PayMode[] = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Wallet', 'Due', 'Room']
 
 type Row = Order & { total: number; qty: number }
 

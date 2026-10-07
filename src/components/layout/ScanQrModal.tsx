@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Camera, ExternalLink, QrCode, RotateCcw, ScanLine, Zap } from 'lucide-react'
-import { Badge, Button, Modal, Select } from '@/components/ui'
+import { Badge, Button, Modal, Segmented, Select } from '@/components/ui'
 import { MiniQR } from '@/components/print/Print'
 import { useStore } from '@/store/useStore'
 import { useScope, useWorkingOutlet } from '@/store/hooks'
 import { toast } from '@/store/toast'
 import { cn } from '@/lib/format'
 import QrCustomerApp from '@/pages/qr/QrCustomerApp'
+import { useHotel } from '@/pages/hotel/hotelStore'
 import { PhoneFrame } from './Overlays'
 import { useUI } from './uiStore'
 
@@ -24,13 +25,28 @@ export function ScanQrModal() {
   const [outletId, setOutletId] = useState(working)
   const [tableId, setTableId] = useState('')
   const [phase, setPhase] = useState<Phase>('camera')
+  const [kind, setKind] = useState<'table' | 'room'>('table')
+  const hotelOutlet = useHotel((s) => s.config.outletId)
+  const hotelName = useHotel((s) => s.config.name)
+  const rooms = useHotel((s) => s.rooms)
+  const reservations = useHotel((s) => s.reservations)
+  const inHouse = useMemo(() => new Set(reservations.filter((r) => r.status === 'In House').map((r) => r.roomId)), [reservations])
+  const isHotel = outletId === hotelOutlet
+  const roomMode = isHotel && kind === 'room'
 
-  const list = tables.filter((t) => t.outletId === outletId && t.qrEnabled)
+  // one list for both QR kinds: tables of the outlet, or hotel rooms
+  const list = roomMode
+    ? rooms.map((r) => ({ id: r.id, label: r.no, qr: `room/${r.id}`, sub: inHouse.has(r.id) ? 'In house' : 'Vacant' }))
+    : tables.filter((t) => t.outletId === outletId && t.qrEnabled).map((t) => ({ id: t.id, label: t.label, qr: `${t.outletId}/${t.id}`, sub: t.status !== 'Available' ? t.status : '' }))
   const table = list.find((t) => t.id === tableId)
   const outlet = outlets.find((o) => o.id === outletId)
+  const spot = table ? `${roomMode ? 'Room' : 'Table'} ${table.label}` : ''
 
   useEffect(() => { if (open) { setOutletId(working); setPhase('camera') } }, [open, working])
-  useEffect(() => { if (!list.some((t) => t.id === tableId)) setTableId(list[0]?.id ?? '') }, [outletId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!list.some((t) => t.id === tableId)) setTableId((roomMode ? list.find((t) => t.sub === 'In house') : undefined)?.id ?? list[0]?.id ?? '')
+    setPhase('camera')
+  }, [outletId, roomMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (phase !== 'scanning') return
@@ -41,11 +57,11 @@ export function ScanQrModal() {
   if (!open) return null
   const aim = (id: string) => { setTableId(id); setPhase('camera') }
   const scan = () => {
-    if (!table) return toast.error('No QR in view', 'Pick a table QR to point the camera at')
+    if (!table) return toast.error('No QR in view', `Pick a ${roomMode ? 'room' : 'table'} QR to point the camera at`)
     if (!qrOn) return toast.error('QR ordering is switched off', 'Enable it in Settings → QR Ordering')
     setPhase('scanning')
   }
-  const url = table ? `${import.meta.env.BASE_URL}qr-order/${outletId}/${table.id}` : ''
+  const url = table ? `${import.meta.env.BASE_URL}${roomMode ? 'qr-room' : 'qr-order'}/${outletId}/${table.id}` : ''
 
   return (
     <Modal open onClose={() => setOpen(false)} size="xl" icon={<ScanLine />} title="Scan QR Menu — guest view"
@@ -58,7 +74,7 @@ export function ScanQrModal() {
       <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-center">
         <PhoneFrame scale={0.92}>
           {phase === 'menu' && table ? (
-            <QrCustomerApp key={table.id} outletId={outletId} tableId={table.id} embedded />
+            roomMode ? <QrCustomerApp key={'r' + table.id} outletId={outletId} roomId={table.id} embedded /> : <QrCustomerApp key={table.id} outletId={outletId} tableId={table.id} embedded />
           ) : (
             <div className="relative flex h-full flex-col bg-black text-white">
               <div className="flex items-center justify-between px-6 pb-3 pt-14 text-[13px]">
@@ -69,9 +85,9 @@ export function ScanQrModal() {
               <div className="relative mx-auto mt-10 flex size-[270px] items-center justify-center rounded-3xl bg-gradient-to-b from-[#3b3a36] to-[#24231f]">
                 {table ? (
                   <div className={cn('flex flex-col items-center rounded-xl bg-white p-3 text-center shadow-2xl transition', phase === 'scanning' ? 'scale-105' : 'rotate-[-4deg] scale-95')}>
-                    <MiniQR seed={`${table.outletId}/${table.id}`} size={120} />
-                    <div className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-[#14a891]">Scan to order</div>
-                    <div className="text-[15px] font-extrabold text-[#0f2a4a]">Table {table.label}</div>
+                    <MiniQR seed={table.qr} size={120} />
+                    <div className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-[#14a891]">{roomMode ? 'In-room dining' : 'Scan to order'}</div>
+                    <div className="text-[15px] font-extrabold text-[#0f2a4a]">{spot}</div>
                   </div>
                 ) : <QrCode className="size-16 text-white/20" />}
                 {/* corner brackets */}
@@ -81,7 +97,7 @@ export function ScanQrModal() {
                 <span className="absolute inset-x-6 h-0.5 rounded-full bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,.8)]" style={{ animation: `qr-scan ${phase === 'scanning' ? 0.7 : 2.2}s ease-in-out infinite` }} />
               </div>
               <p className="mt-6 px-8 text-center text-[13px] text-white/80">
-                {phase === 'scanning' ? <span className="font-semibold text-emerald-400">QR detected · opening {outlet?.short} menu…</span> : table ? 'Hold steady over the table QR code' : 'Point your camera at a table QR'}
+                {phase === 'scanning' ? <span className="font-semibold text-emerald-400">QR detected · opening {roomMode ? hotelName : outlet?.short} menu…</span> : table ? `Hold steady over the ${roomMode ? 'room' : 'table'} QR code` : 'Point your camera at a QR code'}
               </p>
               <div className="mt-auto flex justify-center pb-14">
                 <button onClick={scan} disabled={phase === 'scanning'} aria-label="Scan"
@@ -97,16 +113,16 @@ export function ScanQrModal() {
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <h4 className="text-[13px] font-semibold text-slate-900">Try it</h4>
             <ol className="mt-2 list-decimal space-y-1 pl-4 text-[12.5px] text-slate-600">
-              <li>Pick the table QR the guest is sitting at</li>
+              <li>Pick the {roomMode ? 'room' : 'table'} QR the guest is scanning{roomMode ? ' (room must be checked in)' : ''}</li>
               <li>Tap the <b>shutter</b> button to scan</li>
               <li>Browse the menu, add items and <b>place the order</b></li>
-              <li>See it arrive in <b>POS</b>, <b>Kitchen Display</b> and <b>Tables</b></li>
+              <li>See it arrive in <b>POS</b>, <b>Kitchen Display</b> and {roomMode ? <><b>Front Desk</b> (billed to the room)</> : <b>Tables</b>}</li>
             </ol>
             {!qrOn && <Badge tone="red" className="mt-2">QR ordering is disabled in Settings</Badge>}
           </div>
           <div className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
-              <h4 className="text-[13px] font-semibold text-slate-900">Table QR codes</h4>
+              {isHotel ? <Segmented size="sm" value={kind} onChange={setKind} items={[{ value: 'table', label: 'Tables' }, { value: 'room', label: 'Hotel rooms' }]} /> : <h4 className="text-[13px] font-semibold text-slate-900">Table QR codes</h4>}
               {allowed.length > 1 && (
                 <Select className="w-36" value={outletId} onChange={(e) => setOutletId(e.target.value)}>
                   {allowed.map((id) => <option key={id} value={id}>{outlets.find((o) => o.id === id)?.short}</option>)}
@@ -117,12 +133,12 @@ export function ScanQrModal() {
               {list.map((t) => (
                 <button key={t.id} onClick={() => aim(t.id)}
                   className={cn('flex flex-col items-center rounded-lg border p-1.5 transition', t.id === tableId ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-300')}>
-                  <MiniQR seed={`${t.outletId}/${t.id}`} size={44} />
+                  <MiniQR seed={t.qr} size={44} />
                   <span className="mt-1 text-[11px] font-semibold text-slate-700">{t.label}</span>
-                  {t.status !== 'Available' && <span className="text-[9.5px] text-slate-400">{t.status}</span>}
+                  {t.sub && <span className={cn('text-[9.5px]', t.sub === 'In house' ? 'font-medium text-sky-600' : 'text-slate-400')}>{t.sub}</span>}
                 </button>
               ))}
-              {list.length === 0 && <p className="col-span-4 py-6 text-center text-[12px] text-slate-400">No QR-enabled tables in this outlet.</p>}
+              {list.length === 0 && <p className="col-span-4 py-6 text-center text-[12px] text-slate-400">{roomMode ? 'No rooms set up.' : 'No QR-enabled tables in this outlet.'}</p>}
             </div>
           </div>
           {phase === 'menu' && <Button block icon={<RotateCcw className="size-3.5" />} onClick={() => setPhase('camera')}>Scan another QR</Button>}

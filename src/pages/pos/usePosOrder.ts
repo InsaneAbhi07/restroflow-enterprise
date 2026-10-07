@@ -6,8 +6,12 @@ import { computeTotals } from '@/lib/billing'
 import type { Kot, Order, OrderItem, OrderType, PayMode, Table } from '@/types'
 import { discardIfEmpty, mergeLine } from './posUtils'
 import { usePosUI, type PendingMeta } from './posStore'
+import { useHotel } from '@/pages/hotel/hotelStore'
+import type { RoomGuest } from '@/pages/hotel/roomBilling'
 
 const S = () => useStore.getState()
+const tray = () => useHotel.getState().config.trayCharge
+const extraCharge = (t: OrderType) => (t === 'Delivery' ? 40 : t === 'Room Service' ? tray() : 0)
 const activeOrder = (): Order | undefined => {
   const id = usePosUI.getState().activeId
   const o = id ? S().orders.find((x) => x.id === id) : undefined
@@ -31,7 +35,7 @@ export function usePosOrder() {
     id: '', no: 'NEW', outletId, type, source: meta.source ?? (type === 'Delivery' ? 'Phone' : 'POS'), status: 'Draft', items: [], payments: [], createdAt: Date.now(),
     discount: meta.discount ?? { type: 'pct', value: 0 },
     serviceCharge: meta.serviceCharge ?? (type === 'Dine-in' ? settings.serviceCharge : 0),
-    deliveryCharge: meta.deliveryCharge ?? (type === 'Delivery' ? 40 : 0),
+    deliveryCharge: meta.deliveryCharge ?? extraCharge(type),
     ...meta,
   } as Order, [order, meta, outletId, type, settings.serviceCharge])
   const totals = useMemo(() => computeTotals(view), [view])
@@ -54,7 +58,7 @@ export function usePosOrder() {
     const created = S().createOrder({
       outletId: working, type: t, source: m.source ?? (t === 'Delivery' ? 'Phone' : 'POS'), items, status: 'Draft', cashier: user.name,
       serviceCharge: m.serviceCharge ?? (t === 'Dine-in' ? settings.serviceCharge : 0),
-      deliveryCharge: m.deliveryCharge ?? (t === 'Delivery' ? 40 : 0),
+      deliveryCharge: m.deliveryCharge ?? extraCharge(t),
       ...m,
     })
     setActive(created.id)
@@ -80,12 +84,23 @@ export function usePosOrder() {
     const p: Partial<Order> = {
       type: t,
       serviceCharge: t === 'Dine-in' ? settings.serviceCharge : 0,
-      deliveryCharge: t === 'Delivery' ? 40 : 0,
+      deliveryCharge: extraCharge(t),
     }
     if (t === 'Delivery' && (!src || src === 'POS')) p.source = 'Phone'
     if (t !== 'Delivery' && (src === 'Phone' || src === 'Swiggy' || src === 'Zomato')) p.source = 'POS'
     if (t !== 'Dine-in' && o?.tableId) { freeTable(o.tableId); p.tableId = undefined; p.tableLabel = undefined }
     patch(p)
+  }
+
+  /** Link an in-house hotel guest: room-service delivery target and/or "Charge to Room" */
+  const linkRoom = (g: RoomGuest) => {
+    const digits = g.res.guest.phone.replace(/D/g, '').slice(-10)
+    patch({ roomId: g.room?.id, roomNo: g.room?.no, resId: g.res.id, customerName: g.res.guest.name, customerPhone: digits, customerId: undefined })
+    toast.success(`Room ${g.room?.no} linked`, `${g.res.guest.name}${g.plan?.addonPerAdult ? ' · ' + g.plan.code + ' plan' : ''}`)
+  }
+  const unlinkRoom = () => {
+    const d = (activeOrder() ?? usePosUI.getState().meta).discount
+    patch({ roomId: undefined, roomNo: undefined, resId: undefined, ...(d?.reason?.startsWith('Meal plan') ? { discount: { type: 'pct', value: 0 } } : {}) })
   }
 
   const load = (id: string) => {
@@ -190,8 +205,10 @@ export function usePosOrder() {
     if (!o || !hasItems()) { toast.info('Add items before settling'); return null }
     if (pending().length) S().sendKot(o.id)
     const total = computeTotals(S().orders.find((x) => x.id === o.id)!).total
-    S().settleOrder(o.id, [{ mode, amount: total, ref: mode === 'UPI' ? 'UPI' + Math.floor(1e8 + Math.random() * 9e8) : undefined }])
-    toast.success(`Settled ${inrPlain(total)} by ${mode}`, `Bill ${S().orders.find((x) => x.id === o.id)?.billNo}${o.tableLabel ? ' · table ' + o.tableLabel + ' released' : ''}`)
+    const cur = S().orders.find((x) => x.id === o.id)!
+    if (mode === 'Room' && !cur.resId) { toast.warning('Link a room guest first'); return null }
+    S().settleOrder(o.id, [{ mode, amount: total, ref: mode === 'UPI' ? 'UPI' + Math.floor(1e8 + Math.random() * 9e8) : mode === 'Room' ? `Room ${cur.roomNo}` : undefined }])
+    toast.success(mode === 'Room' ? `${inrPlain(total)} charged to Room ${cur.roomNo}` : `Settled ${inrPlain(total)} by ${mode}`, `Bill ${S().orders.find((x) => x.id === o.id)?.billNo}${o.tableLabel ? ' · table ' + o.tableLabel + ' released' : ''}`)
     return o.id
   }
 
@@ -211,7 +228,7 @@ export function usePosOrder() {
     setActive(null); setMeta({})
   }
 
-  return { order, view, totals, outletId, type, activeId, patch, ensure, addLine, setType, load, reset, pickTable, changeQty, changeLastQty, removeLine, cancelLine, setLineNote, kot, bill, settleQuick, hold, save, hasItems, pending }
+  return { order, view, totals, outletId, type, activeId, patch, ensure, addLine, setType, linkRoom, unlinkRoom, load, reset, pickTable, changeQty, changeLastQty, removeLine, cancelLine, setLineNote, kot, bill, settleQuick, hold, save, hasItems, pending }
 }
 
 const inrPlain = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN')

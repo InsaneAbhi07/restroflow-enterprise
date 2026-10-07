@@ -2,9 +2,11 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useStore } from '@/store/useStore'
 import { fmtDateShort, uid } from '@/lib/format'
+import { computeTotals } from '@/lib/billing'
+import type { Order } from '@/types'
 import {
   addDays, billableNights, folioTotals, isWeekend, mealRateFor, nightRoomCharge, postedNights, roomGst, roomRateFor, stayEstimate, today,
-  type BookingSource, type FolioCharge, type FolioPayment, type GuestInfo, type HkStatus, type HotelConfig, type RatePlan, type Reservation, type Room, type RoomType,
+  type BookingSource, type FolioCharge, type FolioPayment, type GuestInfo, type HkStatus, type HotelConfig, type MealUse, type RatePlan, type Reservation, type Room, type RoomType,
 } from './hotelModel'
 
 /* ------------------------------------------------------------------ masters */
@@ -33,6 +35,11 @@ const SEED_CONFIG: HotelConfig = {
   name: 'The Grand Residency', outletId: 'o1', checkInTime: '14:00', checkOutTime: '11:00',
   weekendUplift: 15, weekendNights: [5, 6], gstThreshold: 7500, gstLow: 5, gstHigh: 18, fnbGst: 5, serviceGst: 18,
   earlyCheckInFee: 1500, lateCheckOutFee: 1500, invoicePrefix: 'GR/26-27/',
+  trayCharge: 100, roomCreditLimit: 25000,
+  minibar: [
+    { name: 'Mineral water 1L', price: 60, stock: 'Mineral Water', stockQty: 1 / 12 }, { name: 'Soft drink 300 ml', price: 90 }, { name: 'Fruit juice 200 ml', price: 110 },
+    { name: 'Potato chips', price: 80 }, { name: 'Chocolate bar', price: 120 }, { name: 'Roasted cashews', price: 250 }, { name: 'Beer 330 ml', price: 350 },
+  ],
 }
 
 /* ------------------------------------------------------------------ seed bookings */
@@ -177,6 +184,7 @@ interface HotelState {
   rooms: Room[]
   plans: RatePlan[]
   reservations: Reservation[]
+  mealUse: MealUse[]
   seq: { res: number; inv: number }
   createReservation: (r: NewReservation, advance?: Settle) => Reservation
   updateReservation: (id: string, patch: Partial<Reservation>) => void
@@ -193,6 +201,7 @@ interface HotelState {
   upsertRoom: (r: Room) => void
   upsertPlan: (p: RatePlan) => void
   updateConfig: (patch: Partial<HotelConfig>) => void
+  recordMealUse: (u: MealUse) => void
   reset: () => void
 }
 
@@ -202,6 +211,7 @@ const seed = () => ({
   rooms: SEED_ROOMS.map((r) => ({ ...r })),
   plans: SEED_PLANS.map((p) => ({ ...p })),
   reservations: seedReservations(),
+  mealUse: [] as MealUse[],
   seq: { res: 1001 + ROWS.length, inv: 307 },
 })
 
@@ -336,10 +346,19 @@ export const useHotel = create<HotelState>()(
         upsertRoom: (r) => set((s) => ({ rooms: (s.rooms.some((x) => x.id === r.id) ? s.rooms.map((x) => (x.id === r.id ? r : x)) : [...s.rooms, r]).sort((a, b) => a.no.localeCompare(b.no, undefined, { numeric: true })) })),
         upsertPlan: (p) => set((s) => ({ plans: s.plans.some((x) => x.id === p.id) ? s.plans.map((x) => (x.id === p.id ? p : x)) : [...s.plans, p] })),
         updateConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
+        recordMealUse: (u) => set((s) => ({ mealUse: s.mealUse.some((x) => x.orderId === u.orderId) ? s.mealUse : [u, ...s.mealUse].slice(0, 500) })),
         reset: () => set(seed()),
       }
     },
-    { name: 'restroflow-hotel-v1' },
+    {
+      name: 'restroflow-hotel-v1',
+      version: 2,
+      // v2 (restaurant link): new config fields + meal-plan usage log
+      migrate: (persisted) => {
+        const s = persisted as HotelState
+        return { ...s, config: { ...SEED_CONFIG, ...s.config }, mealUse: s.mealUse ?? [] } as HotelState
+      },
+    },
   ),
 )
 
@@ -349,3 +368,36 @@ if (typeof window !== 'undefined') {
     if (e.key === 'restroflow-hotel-v1') useHotel.persist.rehydrate()
   })
 }
+
+/* ------------------------------------------------------------------ restaurant → folio bridge
+ * Any restaurant bill linked to a hotel stay (order.resId) that is settled with the "Room" pay mode
+ * is posted to the guest's folio. Resettlements post the difference, so it stays idempotent. */
+const posRef = (orderId: string) => `pos:${orderId}`
+function syncRoomPosting(o: Order) {
+  const h = useHotel.getState()
+  const res = h.reservations.find((r) => r.id === o.resId)
+  if (!res) return
+  const roomAmt = o.status === 'Settled' ? o.payments.filter((p) => p.mode === 'Room').reduce((s, p) => s + p.amount, 0) : 0
+  const posted = res.charges.filter((c) => c.ref === posRef(o.id)).reduce((s, c) => s + c.amount + (c.amount * c.gst) / 100, 0)
+  const diff = Math.round((roomAmt - posted) * 100) / 100
+  if (Math.abs(diff) >= 0.5) {
+    if (res.status !== 'In House') {
+      useStore.getState().notify({ title: 'Room charge not posted', body: `${res.guest.name} (${res.no}) is ${res.status.toLowerCase()} — bill ${o.billNo} needs manual settlement`, type: 'system', link: '/hotel' })
+    } else {
+      const g = h.config.fnbGst
+      const outlet = useStore.getState().outlets.find((x) => x.id === o.outletId)?.short ?? 'Restaurant'
+      h.addCharge(res.id, {
+        kind: 'F&B', gst: g, amount: Math.round((diff / (1 + g / 100)) * 100) / 100, date: today(), ref: posRef(o.id),
+        desc: diff > 0 ? `${outlet} · Bill ${o.billNo}${o.type === 'Room Service' ? ' · room service' : ''}` : `Reversal · Bill ${o.billNo} (resettled)`,
+      })
+    }
+  }
+  if (o.status === 'Settled' && o.discount.reason?.startsWith('Meal plan') && !h.mealUse.some((u) => u.orderId === o.id)) {
+    h.recordMealUse({ orderId: o.id, resId: res.id, date: today(), amount: Math.round(computeTotals(o).discount), at: Date.now() })
+  }
+}
+useStore.subscribe((s, prev) => {
+  if (s.orders === prev.orders) return
+  const before = new Map(prev.orders.map((o) => [o.id, o]))
+  s.orders.forEach((o) => { if (o.resId && before.get(o.id) !== o) syncRoomPosting(o) })
+})

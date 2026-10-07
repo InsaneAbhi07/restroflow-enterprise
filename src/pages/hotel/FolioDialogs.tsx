@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, ArrowRightLeft, Ban, CheckCircle2, IndianRupee, LogOut, Moon, Plus, ReceiptText, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowRightLeft, Ban, CheckCircle2, IndianRupee, LogOut, Minus, Moon, Plus, ReceiptText, Trash2, Wine } from 'lucide-react'
+import { useStore } from '@/store/useStore'
 import { Badge, Button, Field, Input, Modal, Select, Textarea, Toggle } from '@/components/ui'
 import { toast } from '@/store/toast'
 import { cn, fmtDate, fmtDateShort, inr } from '@/lib/format'
@@ -259,3 +260,45 @@ export function CancelReservationModal({ res, onClose }: { res: Reservation; onC
 const Line = ({ k, v, muted }: { k: string; v: string; muted?: boolean }) => (
   <div className={cn('flex justify-between gap-2', muted ? 'text-slate-500' : 'text-slate-600')}><span className="truncate">{k}</span><span className="shrink-0 font-medium text-slate-800 tabular">{v}</span></div>
 )
+
+/* ------------------------------------------------------------------ minibar */
+export function MinibarModal({ res, onClose }: { res: Reservation; onClose: () => void }) {
+  const { config, rooms, addCharge } = useHotel()
+  const [qty, setQty] = useState<Record<string, number>>({})
+  const room = rooms.find((r) => r.id === res.roomId)
+  const lines = config.minibar.filter((m) => (qty[m.name] ?? 0) > 0)
+  const amount = lines.reduce((s, m) => s + m.price * qty[m.name], 0)
+  const save = () => {
+    if (!lines.length) return toast.error('Nothing consumed', 'Count the items used from the minibar')
+    addCharge(res.id, { kind: 'Service', ref: 'minibar', date: today(), gst: config.serviceGst, amount, desc: `Minibar · ${lines.map((m) => `${qty[m.name]}× ${m.name}`).join(', ')}` })
+    // replenishment comes out of the hotel outlet's stock
+    const st = useStore.getState()
+    lines.forEach((m) => {
+      const mat = m.stock ? st.materials.find((x) => x.name.startsWith(m.stock!)) : undefined
+      if (mat) st.adjustStock(mat.id, config.outletId, -(qty[m.name] * (m.stockQty ?? 1)), 'Consumption', `Minibar Room ${room?.no}`)
+    })
+    toast.success('Minibar posted', `${inr(amount * (1 + config.serviceGst / 100))} incl. GST · Room ${room?.no}`)
+    onClose()
+  }
+  return (
+    <Modal open onClose={onClose} size="md" icon={<Wine />} title={`Minibar · Room ${room?.no ?? ''}`} subtitle={`${res.guest.name} · count items consumed`}
+      footer={<><span className="mr-auto text-[12.5px] text-slate-600">Total <b className="tabular text-slate-900">{inr(amount * (1 + config.serviceGst / 100), true)}</b> incl. {config.serviceGst}% GST</span><Button onClick={onClose}>Cancel</Button><Button variant="primary" onClick={save} disabled={!lines.length}>Post to folio</Button></>}>
+      <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+        {config.minibar.map((m) => {
+          const n = qty[m.name] ?? 0
+          return (
+            <li key={m.name} className="flex items-center gap-3 px-3 py-2 text-[13px]">
+              <span className="flex-1 text-slate-800">{m.name}{m.stock && <span className="ml-1.5 text-[10.5px] text-slate-400">· stock linked</span>}</span>
+              <span className="w-14 text-right tabular text-slate-500">{inr(m.price)}</span>
+              <div className="flex items-center rounded-md border border-slate-200">
+                <button onClick={() => setQty({ ...qty, [m.name]: Math.max(0, n - 1) })} className="flex size-7 items-center justify-center text-slate-500 hover:bg-slate-100"><Minus className="size-3" /></button>
+                <span className="w-6 text-center text-[12.5px] font-bold tabular">{n}</span>
+                <button onClick={() => setQty({ ...qty, [m.name]: n + 1 })} className="flex size-7 items-center justify-center text-slate-500 hover:bg-slate-100"><Plus className="size-3" /></button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </Modal>
+  )
+}

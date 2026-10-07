@@ -9,7 +9,7 @@ import { SOURCE_TONE, isFreshExternal } from './posUtils'
 
 const OPEN = ['Draft', 'Running', 'Billed', 'Hold']
 const icon = (o: Order) => o.source === 'Waiter App' ? <Smartphone className="size-3" /> : o.source === 'QR Order' ? <QrCode className="size-3" /> : o.type === 'Delivery' ? <Bike className="size-3" /> : o.type === 'Takeaway' ? <ShoppingBag className="size-3" /> : <UtensilsCrossed className="size-3" />
-const label = (o: Order) => (o.tableLabel ? o.tableLabel : o.type === 'Takeaway' ? 'TK ' + o.no.slice(-3) : o.type === 'Delivery' ? 'DL ' + o.no.slice(-3) : o.no.slice(-4))
+const label = (o: Order) => (o.tableLabel ? o.tableLabel : o.type === 'Room Service' ? 'R' + (o.roomNo ?? '?') : o.type === 'Takeaway' ? 'TK ' + o.no.slice(-3) : o.type === 'Delivery' ? 'DL ' + o.no.slice(-3) : o.no.slice(-4))
 
 export function useOpenOrders(outletId: string) {
   const orders = useStore((s) => s.orders)
@@ -68,7 +68,7 @@ function RunningDrawer({ open, onClose, list, activeId, onLoad }: { open: boolea
             <button key={o.id} onClick={() => onLoad(o.id)}
               className={cn('w-full rounded-xl border p-3 text-left transition hover:border-brand-300 hover:shadow-sm', o.id === activeId ? 'border-navy-900 ring-2 ring-navy-100' : 'border-slate-200')}>
               <div className="flex items-center gap-2">
-                <span className="text-[14px] font-bold text-slate-900">{o.tableLabel ? 'Table ' + o.tableLabel : o.type}</span>
+                <span className="text-[14px] font-bold text-slate-900">{o.tableLabel ? 'Table ' + o.tableLabel : o.type === 'Room Service' ? 'Room ' + (o.roomNo ?? '—') : o.type}</span>
                 <Badge tone={SOURCE_TONE[o.source]}>{o.source}</Badge>
                 <StatusBadge status={o.status === 'Draft' ? 'Draft' : o.status} />
                 {isFreshExternal(o) && <Badge tone="red" dot>New</Badge>}

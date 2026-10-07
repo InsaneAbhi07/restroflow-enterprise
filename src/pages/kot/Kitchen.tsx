@@ -77,7 +77,7 @@ export default function Kitchen() {
     const fresh = outletKots.filter((k) => !seen.current!.has(k.id))
     fresh.forEach((k) => {
       seen.current!.add(k.id)
-      if (sound) toast.info(`🔔 New KOT ${k.no}`, `${k.type === 'Dine-in' ? 'Table ' + k.tableLabel : k.type} · ${k.source} · ${k.items.length} items`)
+      if (sound) toast.info(`🔔 New KOT ${k.no}`, `${k.type === 'Dine-in' ? 'Table ' + k.tableLabel : k.type === 'Room Service' ? 'Room ' + k.tableLabel.replace(/^R/, '') : k.type} · ${k.source} · ${k.items.length} items`)
     })
   }, [outletKots, sound])
 

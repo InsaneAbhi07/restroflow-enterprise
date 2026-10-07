@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { ArrowRightLeft, Ban, CalendarClock, IndianRupee, LogIn, LogOut, Pencil, Plus, Printer, UserX } from 'lucide-react'
+import { ArrowRightLeft, Ban, CalendarClock, IndianRupee, LogIn, LogOut, Pencil, Plus, Printer, Send, UserX, Utensils, Wine } from 'lucide-react'
 import { Badge, Button, Drawer, EmptyState, KeyValue, Tabs, type Tone } from '@/components/ui'
 import { PrintPreviewModal } from '@/components/print/Print'
 import { usePermission } from '@/store/hooks'
+import { useStore } from '@/store/useStore'
+import { computeTotals } from '@/lib/billing'
 import { toast } from '@/store/toast'
 import { cn, fmtDate, fmtDateShort, fmtDateTime, fmtTime, inr } from '@/lib/format'
 import { useHotel } from './hotelStore'
@@ -10,10 +12,11 @@ import { chargeTax, folioTotals, nightsBetween, stayEstimate, today, type Charge
 import { ResBadge, SectionTitle, SourceTag } from './hotelUi'
 import { ReservationModal } from './ReservationModal'
 import { CheckInModal } from './CheckInModal'
-import { AddChargeModal, AddPaymentModal, CancelReservationModal, CheckOutModal, MoveRoomModal } from './FolioDialogs'
+import { AddChargeModal, AddPaymentModal, CancelReservationModal, CheckOutModal, MinibarModal, MoveRoomModal } from './FolioDialogs'
+import { postOrderToRoom } from './roomBilling'
 import { FolioInvoice } from './FolioInvoice'
 
-type ModalKey = 'edit' | 'checkin' | 'checkout' | 'charge' | 'payment' | 'move' | 'cancel' | 'print'
+type ModalKey = 'edit' | 'checkin' | 'checkout' | 'charge' | 'payment' | 'move' | 'cancel' | 'print' | 'minibar'
 const KIND_TONE: Record<ChargeKind, Tone> = { Room: 'navy', 'F&B': 'orange', Service: 'teal', Allowance: 'red' }
 
 export function StayDrawer({ resId, onClose }: { resId: string; onClose: () => void }) {
@@ -22,6 +25,7 @@ export function StayDrawer({ resId, onClose }: { resId: string; onClose: () => v
   const r = reservations.find((x) => x.id === resId)
   const [tab, setTab] = useState<'folio' | 'details'>(r && (r.status === 'In House' || r.status === 'Checked Out') ? 'folio' : 'details')
   const [modal, setModal] = useState<ModalKey | null>(null)
+  const allOrders = useStore((s) => s.orders)
   if (!r) return null
 
   const room = rooms.find((x) => x.id === r.roomId)
@@ -32,6 +36,9 @@ export function StayDrawer({ resId, onClose }: { resId: string; onClose: () => v
   const t = today()
   const edit = can('hotel', 'edit'), create = can('hotel', 'create')
   const close = () => setModal(null)
+  // restaurant orders linked to this stay that have not been posted yet
+  const openOrders = allOrders.filter((o) => o.resId === r.id && o.status !== 'Settled' && o.status !== 'Cancelled')
+  const post = (id: string) => { const x = postOrderToRoom(id); if (x.ok) toast.success(x.title, x.body); else toast.error(x.title, x.body) }
 
   const byDate = Array.from(new Set(r.charges.map((c) => c.date))).sort().reverse().map((d) => ({ date: d, items: r.charges.filter((c) => c.date === d) }))
 
@@ -79,6 +86,21 @@ export function StayDrawer({ resId, onClose }: { resId: string; onClose: () => v
               <div className="flex gap-2">
                 <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => setModal('charge')}>Post charge</Button>
                 <Button size="sm" icon={<IndianRupee className="size-3.5" />} onClick={() => setModal('payment')}>Payment</Button>
+                <Button size="sm" icon={<Wine className="size-3.5" />} onClick={() => setModal('minibar')}>Minibar</Button>
+              </div>
+            )}
+            {openOrders.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                <SectionTitle><span className="inline-flex items-center gap-1.5 text-amber-700"><Utensils className="size-3.5" />Open restaurant orders · not on folio yet</span></SectionTitle>
+                <ul className="space-y-1.5">
+                  {openOrders.map((o) => (
+                    <li key={o.id} className="flex items-center gap-2 text-[12.5px]">
+                      <span className="flex-1 text-slate-700">{o.no} · {o.type === 'Room Service' ? 'Room service' : o.type} · {o.items.filter((i) => !i.cancelled).length} items · <span className="text-slate-500">{o.status}</span></span>
+                      <span className="font-medium tabular">{inr(computeTotals(o).total)}</span>
+                      {edit && <Button size="xs" variant="primary" icon={<Send className="size-3" />} onClick={() => post(o.id)}>Post</Button>}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {byDate.length === 0 ? (
@@ -155,6 +177,7 @@ export function StayDrawer({ resId, onClose }: { resId: string; onClose: () => v
       {modal === 'payment' && <AddPaymentModal res={r} onClose={close} />}
       {modal === 'move' && <MoveRoomModal res={r} onClose={close} />}
       {modal === 'cancel' && <CancelReservationModal res={r} onClose={close} />}
+      {modal === 'minibar' && <MinibarModal res={r} onClose={close} />}
       {modal === 'print' && (
         <PrintPreviewModal open onClose={close} paper="a4" title={r.invoiceNo ? `Invoice ${r.invoiceNo}` : `Folio ${r.no}`} subtitle={`${r.guest.name} · Room ${room?.no ?? '—'}`}>
           <FolioInvoice res={r} />

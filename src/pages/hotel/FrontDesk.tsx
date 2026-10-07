@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BedDouble, BrushCleaning, CalendarPlus, ConciergeBell, IndianRupee, LogIn, LogOut, Moon, Percent, TrendingUp, UserPlus, Users } from 'lucide-react'
+import { BedDouble, BrushCleaning, CalendarPlus, ConciergeBell, IndianRupee, LogIn, LogOut, Moon, Percent, TrendingUp, UserPlus, Users, Utensils } from 'lucide-react'
 import { Badge, Button, Card, DataTable, PageHeader, StatCard, Tabs, type Column } from '@/components/ui'
 import { isToday, usePermission } from '@/store/hooks'
 import { cn, fmtDate, fmtDateShort, fmtTime, inr } from '@/lib/format'
@@ -11,8 +11,9 @@ import { StayDrawer } from './StayDrawer'
 import { ReservationModal } from './ReservationModal'
 import { CheckInModal } from './CheckInModal'
 import { CheckOutModal, NightAuditModal } from './FolioDialogs'
+import { InRoomDining } from './InRoomDining'
 
-type TabKey = 'rack' | 'arrivals' | 'inhouse' | 'departures'
+type TabKey = 'rack' | 'arrivals' | 'inhouse' | 'departures' | 'dining'
 
 export default function FrontDesk() {
   const { rooms, types, plans, reservations, config } = useHotel()
@@ -116,6 +117,7 @@ export default function FrontDesk() {
             { value: 'arrivals', label: 'Arrivals', count: arrivals.filter((r) => r.status === 'Confirmed').length },
             { value: 'inhouse', label: 'In-house', count: inHouse.length },
             { value: 'departures', label: 'Departures', count: departures.filter((r) => r.status === 'In House').length },
+            { value: 'dining', label: 'In-room dining', icon: <Utensils className="size-3.5" /> },
           ]} />
         </div>
         <div className="border-t border-slate-100">
@@ -172,6 +174,7 @@ export default function FrontDesk() {
           )}
           {tab === 'arrivals' && <DataTable columns={arrivalCols} rows={arrivals} onRowClick={(r) => setStayId(r.id)} pageSize={15} />}
           {tab === 'inhouse' && <DataTable columns={inHouseCols} rows={inHouse} onRowClick={(r) => setStayId(r.id)} pageSize={15} />}
+          {tab === 'dining' && <InRoomDining onOpenStay={setStayId} />}
           {tab === 'departures' && <DataTable columns={depCols} rows={departures} onRowClick={(r) => setStayId(r.id)} pageSize={15} />}
         </div>
       </Card>

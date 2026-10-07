@@ -14,14 +14,18 @@ import { ItemSheet } from './customer/ItemSheet'
 import { CartScreen } from './customer/CartScreen'
 import { TrackScreen } from './customer/TrackScreen'
 import { lineKey, unitPrice, useQrSession, type CartLine } from './customer/qrSession'
+import { useHotel } from '@/pages/hotel/hotelStore'
 
 type Screen = 'welcome' | 'menu' | 'cart' | 'track'
 const EMPTY: string[] = []
 
-export default function QrCustomerApp(props: { outletId?: string; tableId?: string; embedded?: boolean }) {
+/** Guest ordering from a table QR, or from a hotel room QR (roomId → in-room dining, billed to the room) */
+export default function QrCustomerApp(props: { outletId?: string; tableId?: string; roomId?: string; embedded?: boolean }) {
   const params = useParams()
   const outletId = props.outletId ?? params.outletId ?? ''
   const tableId = props.tableId ?? params.tableId ?? ''
+  const roomId = props.roomId ?? params.roomId ?? ''
+  const inRoom = !!roomId
   const embedded = !!props.embedded
 
   const outlet = useStore((s) => s.outlets.find((o) => o.id === outletId))
@@ -31,7 +35,13 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
   const allOrders = useStore((s) => s.orders)
   const allKots = useStore((s) => s.kots)
   const settings = useStore((s) => s.settings)
-  const sessionKey = `${outletId}:${tableId}`
+  const hotelRoom = useHotel((s) => (inRoom ? s.rooms.find((r) => r.id === roomId) : undefined))
+  const stay = useHotel((s) => (inRoom ? s.reservations.find((r) => r.roomId === roomId && r.status === 'In House') : undefined))
+  const hotelCfg = useHotel((s) => s.config)
+  const spot = inRoom ? `Room ${hotelRoom?.no ?? ''}` : `Table ${table?.label ?? ''}`
+  const charges = { serviceCharge: inRoom ? 0 : settings.serviceCharge, deliveryCharge: inRoom ? hotelCfg.trayCharge : 0 }
+  // a room session belongs to the current stay, so the next guest never sees the previous guest's orders
+  const sessionKey = inRoom ? `room:${roomId}:${stay?.id ?? ''}` : `${outletId}:${tableId}`
   const sessionIds = useQrSession((s) => s.sessions[sessionKey]?.orderIds ?? EMPTY)
   const addSessionOrder = useQrSession((s) => s.addOrder)
 
@@ -43,11 +53,11 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
   const [pax, setPax] = useState(2)
   const [placing, setPlacing] = useState(false)
 
-  const items = useMemo(() => menu.filter((m) => m.outlets.includes(outletId)), [menu, outletId])
+  const items = useMemo(() => menu.filter((m) => m.outlets.includes(outletId) && (!inRoom || m.roomService !== false)), [menu, outletId, inRoom])
   const myOrders: Order[] = useMemo(() => sessionIds.map((id) => allOrders.find((o) => o.id === id)).filter((o): o is Order => !!o), [sessionIds, allOrders])
   const activeOrders = myOrders.filter((o) => o.status === 'Running' || o.status === 'Billed' || (o.status === 'Settled' && o.settledAt && Date.now() - o.settledAt < 30 * 60000))
   const myKots: Kot[] = useMemo(() => allKots.filter((k) => activeOrders.some((o) => o.id === k.orderId)), [allKots, activeOrders])
-  const appendTo = activeOrders.find((o) => o.status === 'Running' && table?.orderId === o.id)
+  const appendTo = activeOrders.find((o) => o.status === 'Running' && (inRoom ? o.roomId === roomId && o.resId === stay?.id : table?.orderId === o.id))
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0)
   const cartSub = cart.reduce((s, l) => s + unitPrice(l) * l.qty, 0)
@@ -55,7 +65,7 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
     id: uid('oi'), itemId: l.item.id, name: l.item.name, price: l.variant?.price ?? l.item.price, qty: l.qty, veg: l.item.veg, gst: l.item.gst,
     variant: l.variant?.name, modifiers: l.modifiers.length ? l.modifiers : undefined, note: l.note || undefined,
   }))
-  const totals = computeTotals({ items: orderItems(), discount: { type: 'pct', value: 0 }, serviceCharge: settings.serviceCharge })
+  const totals = computeTotals({ items: orderItems(), discount: { type: 'pct', value: 0 }, ...charges })
 
   // ----- cart ops
   const addLine = (item: MenuItem, opts: { variant?: CartLine['variant']; modifiers: CartLine['modifiers']; note: string; qty: number }) => {
@@ -81,7 +91,7 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
 
   // ----- place order
   const place = () => {
-    if (!table || !cart.length) return
+    if ((inRoom ? !stay : !table) || !cart.length) return
     setPlacing(true)
     setTimeout(() => {
       const st = useStore.getState()
@@ -92,29 +102,33 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
         st.updateOrder(existing.id, { items: [...existing.items, ...newItems], note: [existing.note, note].filter(Boolean).join(' · ') || undefined })
         orderId = existing.id
       } else {
-        const o = st.createOrder({
-          outletId, type: 'Dine-in', source: 'QR Order', tableId, tableLabel: table.label, items: newItems,
+        const o = st.createOrder(inRoom && stay ? {
+          outletId, type: 'Room Service', source: 'QR Order', roomId, roomNo: hotelRoom?.no, resId: stay.id, customerName: stay.guest.name, items: newItems,
+          waiterName: 'In-room QR', status: 'Running', pax, note: note || undefined, ...charges,
+        } : {
+          outletId, type: 'Dine-in', source: 'QR Order', tableId, tableLabel: table!.label, items: newItems,
           waiterName: 'QR Guest', status: 'Running', pax, note: note || undefined,
         })
         orderId = o.id
       }
       const kot = st.sendKot(orderId)
       addSessionOrder(sessionKey, orderId)
-      const amount = computeTotals({ items: newItems, discount: { type: 'pct', value: 0 }, serviceCharge: settings.serviceCharge }).total
-      st.notify({ title: `New QR order · Table ${table.label}`, body: `${cartCount} items · ${inr(amount)} · ${outlet?.short ?? ''}`, type: 'order', link: '/kot' })
-      st.log(`QR order placed from table ${table.label} (${cartCount} items, ${inr(amount)})`, 'qr', 'success', outletId)
-      toast.success('Order sent to kitchen', `${kot?.no ?? ''} · Table ${table.label}`)
+      const amount = computeTotals({ items: newItems, discount: { type: 'pct', value: 0 }, ...charges }).total
+      st.notify({ title: inRoom ? `New in-room order · ${spot}` : `New QR order · ${spot}`, body: `${cartCount} items · ${inr(amount)} · ${outlet?.short ?? ''}`, type: 'order', link: '/kot' })
+      st.log(`QR order placed from ${spot.toLowerCase()} (${cartCount} items, ${inr(amount)})`, 'qr', 'success', outletId)
+      toast.success('Order sent to kitchen', `${kot?.no ?? ''} · ${spot}`)
       setCart([]); setNote(''); setPlacing(false); setScreen('track')
     }, 650)
   }
 
   const callWaiter = () => {
-    if (!table) return
-    useStore.getState().notify({ title: `Waiter called · Table ${table.label}`, body: `Guest at ${outlet?.short ?? ''} needs assistance`, type: 'order', link: '/tables' })
-    useStore.getState().log(`QR guest at table ${table.label} called a waiter`, 'qr', 'info', outletId)
-    toast.success('Waiter is on the way', 'We have notified your server')
+    if (inRoom ? !stay : !table) return
+    useStore.getState().notify({ title: inRoom ? `Reception called · ${spot}` : `Waiter called · ${spot}`, body: `Guest at ${inRoom ? hotelCfg.name : outlet?.short ?? ''} needs assistance`, type: 'order', link: inRoom ? '/hotel' : '/tables' })
+    useStore.getState().log(`QR guest at ${spot.toLowerCase()} called ${inRoom ? 'reception' : 'a waiter'}`, 'qr', 'info', outletId)
+    toast.success(inRoom ? 'Reception notified' : 'Waiter is on the way', inRoom ? 'Someone will call your room shortly' : 'We have notified your server')
   }
   const requestBill = () => {
+    if (inRoom) return void toast.info('Charged to your room', 'In-room dining is added to your room bill and settled at check-out')
     if (!table) return
     useStore.getState().notify({ title: `Bill requested · Table ${table.label}`, body: `Guest requested the bill via QR · ${outlet?.short ?? ''}`, type: 'order', link: '/tables' })
     useStore.getState().log(`QR guest at table ${table.label} requested the bill`, 'qr', 'info', outletId)
@@ -122,7 +136,11 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
   }
 
   // ----- unavailable states
-  const unavailable = !outlet || !table ? 'This QR code is not valid. Please ask the staff for help.'
+  const unavailable = inRoom
+    ? (!outlet || !hotelRoom || hotelCfg.outletId !== outletId ? 'This QR code is not valid. Please contact the front desk.'
+      : !settings.qr.enabled ? 'In-room ordering is paused right now. Please dial the restaurant from your room phone.'
+        : !stay ? `Room ${hotelRoom.no} is not checked in. Please contact the front desk.` : null)
+    : !outlet || !table ? 'This QR code is not valid. Please ask the staff for help.'
     : !settings.qr.enabled ? 'QR ordering is paused right now. Please call your server to place an order.'
       : !table.qrEnabled ? `QR ordering is disabled for table ${table.label}. Please ask your server.` : null
 
@@ -147,8 +165,8 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
               <p className="text-[14px] text-white/70">{outlet!.short} · {ORG.tagline}</p>
               <div className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 ring-1 ring-white/15 backdrop-blur">
                 <UtensilsCrossed className="size-4 text-brand-300" />
-                <span className="text-[13px] text-white/70">You're at</span>
-                <span className="text-[18px] font-extrabold">Table {table!.label}</span>
+                <span className="text-[13px] text-white/70">{inRoom ? `Welcome, ${stay!.guest.name.split(' ')[0]} ·` : "You're at"}</span>
+                <span className="text-[18px] font-extrabold">{spot}</span>
               </div>
             </div>
           </div>
@@ -156,7 +174,7 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
             <div className="space-y-2.5 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center gap-3 text-[13px] text-slate-600"><Clock className="size-4 text-brand-600" />Open today · {outlet!.hours}</div>
               <div className="flex items-start gap-3 text-[13px] text-slate-600"><MapPin className="mt-0.5 size-4 text-brand-600" />{outlet!.address}</div>
-              <div className="flex items-center gap-3 text-[13px] text-slate-600"><ShieldCheck className="size-4 text-brand-600" />Order from your phone — no app, no login</div>
+              <div className="flex items-center gap-3 text-[13px] text-slate-600"><ShieldCheck className="size-4 text-brand-600" />{inRoom ? 'Delivered to your room · added to your room bill' : 'Order from your phone — no app, no login'}</div>
             </div>
             <div className="mt-3 flex items-center justify-between rounded-3xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center gap-3">
@@ -179,15 +197,15 @@ export default function QrCustomerApp(props: { outletId?: string; tableId?: stri
           </div>
         </div>
       ) : screen === 'menu' ? (
-        <MenuScreen items={items} categories={categories} outletName={outlet!.short} tableLabel={table!.label} embedded={embedded}
+        <MenuScreen items={items} categories={categories} outletName={outlet!.short} tableLabel={spot} inRoom={inRoom} embedded={embedded}
           veg={veg} setVeg={setVeg} qtyOf={qtyOf} onAdd={quickAdd} onDec={dec} onBack={() => setScreen('welcome')}
           cartCount={cartCount} cartTotal={cartSub} onViewCart={() => setScreen('cart')}
           hasActiveOrder={activeOrders.length > 0} onTrack={() => setScreen('track')} />
       ) : screen === 'cart' ? (
-        <CartScreen lines={cart} categories={categories} totals={totals} serviceCharge={settings.serviceCharge} tableLabel={table!.label} embedded={embedded}
+        <CartScreen lines={cart} categories={categories} totals={totals} serviceCharge={settings.serviceCharge} tableLabel={spot} inRoom={inRoom} embedded={embedded}
           note={note} setNote={setNote} pax={pax} setPax={setPax} onQty={setQty} onBack={() => setScreen('menu')} onPlace={place} placing={placing} appending={!!appendTo} />
       ) : (
-        <TrackScreen orders={activeOrders.length ? activeOrders : myOrders.slice(-1)} kots={myKots} tableLabel={table!.label} embedded={embedded}
+        <TrackScreen orders={activeOrders.length ? activeOrders : myOrders.slice(-1)} kots={myKots} tableLabel={spot} inRoom={inRoom} embedded={embedded}
           onBack={() => setScreen('menu')} onOrderMore={() => setScreen('menu')} onCallWaiter={callWaiter} onRequestBill={requestBill} />
       )}
 

@@ -38,6 +38,7 @@ export default function App() {
         <Route path="/login" element={<><Login /><Toaster /></>} />
         {/* Standalone mobile-first experiences */}
         <Route path="/mobile" element={<div className="h-full bg-slate-900 sm:flex sm:items-center sm:justify-center"><div className="h-full w-full sm:h-[860px] sm:max-h-full sm:w-[400px] sm:overflow-hidden sm:rounded-[36px] sm:shadow-2xl"><StaffApp /></div><Toaster /></div>} />
+        <Route path="/qr-room/:outletId/:roomId" element={<div className="h-full bg-slate-900 sm:flex sm:items-center sm:justify-center"><div className="h-full w-full sm:h-[860px] sm:max-h-full sm:w-[400px] sm:overflow-hidden sm:rounded-[36px] sm:shadow-2xl"><QrCustomerApp /></div><Toaster /></div>} />
         <Route path="/qr-order/:outletId/:tableId" element={<div className="h-full bg-slate-900 sm:flex sm:items-center sm:justify-center"><div className="h-full w-full sm:h-[860px] sm:max-h-full sm:w-[400px] sm:overflow-hidden sm:rounded-[36px] sm:shadow-2xl"><QrCustomerApp /></div><Toaster /></div>} />
 
         <Route element={<AppShell />}>

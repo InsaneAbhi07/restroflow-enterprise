@@ -15,6 +15,8 @@ export interface MenuItem {
   emoji: string; gst: number; available: boolean; variants?: Variant[]; modifiers?: Modifier[]
   outlets: ID[]; bestseller?: boolean; spicy?: boolean; description?: string
   station: 'Kitchen' | 'Tandoor' | 'Chinese' | 'Bar' | 'Desserts'
+  /** offered on the in-room dining menu (default true) */
+  roomService?: boolean
 }
 
 export type TableStatus = 'Available' | 'Occupied' | 'Reserved' | 'Billing' | 'Cleaning'
@@ -46,10 +48,11 @@ export interface User {
   lastActive: string; employeeId?: ID; pin: string; phone: string; color: string
 }
 
-export type OrderType = 'Dine-in' | 'Takeaway' | 'Delivery'
+export type OrderType = 'Dine-in' | 'Takeaway' | 'Delivery' | 'Room Service'
 export type OrderSource = 'POS' | 'Waiter App' | 'QR Order' | 'Swiggy' | 'Zomato' | 'Phone'
 export type OrderStatus = 'Draft' | 'Hold' | 'Running' | 'Billed' | 'Settled' | 'Cancelled'
-export type PayMode = 'Cash' | 'UPI' | 'Credit Card' | 'Debit Card' | 'Due' | 'Wallet'
+/** 'Room' = charged to an in-house hotel guest's folio */
+export type PayMode = 'Cash' | 'UPI' | 'Credit Card' | 'Debit Card' | 'Due' | 'Wallet' | 'Room'
 export interface OrderItem {
   id: ID; itemId: ID; name: string; price: number; qty: number; veg: boolean; gst: number
   variant?: string; modifiers?: Modifier[]; note?: string; kotNo?: string; cancelled?: boolean
@@ -63,6 +66,8 @@ export interface Order {
   pax?: number; items: OrderItem[]; discount: { type: 'pct' | 'flat'; value: number; reason?: string }
   serviceCharge: number; deliveryCharge?: number; payments: Payment[]; createdAt: number; settledAt?: number
   cashier?: string; note?: string; resettlements?: Resettlement[]; cancelReason?: string
+  /** hotel link: room-service orders and dining guests who charge to their room */
+  roomId?: ID; roomNo?: string; resId?: ID
 }
 export interface Totals {
   subtotal: number; discount: number; taxable: number; cgst: number; sgst: number

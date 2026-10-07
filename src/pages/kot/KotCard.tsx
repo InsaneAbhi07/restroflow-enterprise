@@ -39,7 +39,7 @@ function KotCardImpl({ kot, now, menu, station, editable, fresh, compact, onAdva
     return (
       <button onClick={() => onView(kot)} className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left transition hover:border-slate-300">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[13px] font-bold text-slate-900">{kot.type === 'Dine-in' ? kot.tableLabel : kot.type}</span>
+          <span className="text-[13px] font-bold text-slate-900">{kot.type === 'Dine-in' ? kot.tableLabel : kot.type === 'Room Service' ? `Room ${kot.tableLabel.replace(/^R/, '')}` : kot.type}</span>
           <span className="text-[10.5px] text-slate-400">{fmtTime(kot.updatedAt)}</span>
         </div>
         <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-500">
@@ -63,7 +63,7 @@ function KotCardImpl({ kot, now, menu, station, editable, fresh, compact, onAdva
       <div className={cn('flex items-start justify-between gap-2 px-3 py-2', active ? tone.bg : 'bg-slate-50')}>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-[22px] font-extrabold leading-none tracking-tight text-slate-900">{kot.type === 'Dine-in' ? kot.tableLabel : kot.type === 'Delivery' ? 'DLV' : 'TKW'}</span>
+            <span className="text-[22px] font-extrabold leading-none tracking-tight text-slate-900">{kot.type === 'Dine-in' || kot.type === 'Room Service' ? kot.tableLabel : kot.type === 'Delivery' ? 'DLV' : 'TKW'}</span>
             {kot.priority && <Badge tone="red" className="text-[10px]"><Flag className="size-2.5" />Priority</Badge>}
             {fresh && <Badge tone="teal" className="text-[10px]">NEW</Badge>}
           </div>

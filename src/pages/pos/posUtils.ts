@@ -84,12 +84,12 @@ export const SOURCE_TONE: Record<OrderSource, Tone> = {
   POS: 'navy', 'Waiter App': 'teal', 'QR Order': 'violet', Swiggy: 'orange', Zomato: 'red', Phone: 'blue',
 }
 export const PAY_TONE: Record<PayMode, Tone> = {
-  Cash: 'green', UPI: 'violet', 'Credit Card': 'blue', 'Debit Card': 'navy', Due: 'amber', Wallet: 'orange',
+  Cash: 'green', UPI: 'violet', 'Credit Card': 'blue', 'Debit Card': 'navy', Due: 'amber', Wallet: 'orange', Room: 'teal',
 }
 export const PAY_COLOR: Record<PayMode, string> = {
-  Cash: '#16a34a', UPI: '#7c3aed', 'Credit Card': '#0891b2', 'Debit Card': '#1d3f70', Due: '#d97706', Wallet: '#ea580c',
+  Cash: '#16a34a', UPI: '#7c3aed', 'Credit Card': '#0891b2', 'Debit Card': '#1d3f70', Due: '#d97706', Wallet: '#ea580c', Room: '#14a891',
 }
-export const orderLabel = (o: Pick<Order, 'type' | 'tableLabel' | 'no'>) =>
-  o.type === 'Dine-in' ? (o.tableLabel ? `Table ${o.tableLabel}` : 'Dine-in') : o.type === 'Takeaway' ? `Takeaway · ${o.no.replace('ORD-', '#')}` : `Delivery · ${o.no.replace('ORD-', '#')}`
+export const orderLabel = (o: Pick<Order, 'type' | 'tableLabel' | 'no' | 'roomNo'>) =>
+  o.type === 'Room Service' ? `Room ${o.roomNo ?? '—'}` : o.type === 'Dine-in' ? (o.tableLabel ? `Table ${o.tableLabel}` : 'Dine-in') : o.type === 'Takeaway' ? `Takeaway · ${o.no.replace('ORD-', '#')}` : `Delivery · ${o.no.replace('ORD-', '#')}`
 
 export const isFreshExternal = (o: Order) => o.source !== 'POS' && Date.now() - o.createdAt < 3 * 60000

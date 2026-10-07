@@ -40,7 +40,15 @@ export interface HotelConfig {
   weekendUplift: number; weekendNights: number[] // 5 = Fri, 6 = Sat
   gstThreshold: number; gstLow: number; gstHigh: number; fnbGst: number; serviceGst: number
   earlyCheckInFee: number; lateCheckOutFee: number; invoicePrefix: string; lastAudit?: string
+  /** room-service tray charge added to every in-room order */
+  trayCharge: number
+  /** max unpaid folio balance before the restaurant stops accepting "Charge to Room" */
+  roomCreditLimit: number
+  minibar: MinibarItem[]
 }
+export interface MinibarItem { name: string; price: number; /** inventory material to deduct (name prefix) and how much of its unit one item uses */ stock?: string; stockQty?: number }
+/** meal-plan allowance consumed by a restaurant bill */
+export interface MealUse { orderId: string; resId: string; date: string; amount: number; at: number }
 
 /* ------------------------------------------------------------------ dates */
 export const today = () => isoDate()

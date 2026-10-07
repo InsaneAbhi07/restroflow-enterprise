@@ -1,7 +1,7 @@
 import type React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Banknote, CheckCircle2, CreditCard, Loader2, MessageCircle, Plus, Printer, QrCode, Smartphone, SplitSquareHorizontal, Trash2, Wallet, Receipt } from 'lucide-react'
-import { Badge, Button, Input, Modal, Select, Stepper, VegMark } from '@/components/ui'
+import { Banknote, BedDouble, CheckCircle2, CreditCard, Loader2, MessageCircle, Plus, Printer, QrCode, Smartphone, SplitSquareHorizontal, Trash2, Wallet, Receipt } from 'lucide-react'
+import { Badge, Button, Checkbox, Input, Modal, Select, Stepper, VegMark } from '@/components/ui'
 import { MiniQR, PrintPreviewModal } from '@/components/print/Print'
 import { ThermalReceipt } from '@/components/print/Receipts'
 import { useStore } from '@/store/useStore'
@@ -10,13 +10,17 @@ import { computeTotals, lineTotal } from '@/lib/billing'
 import { cn, inr } from '@/lib/format'
 import { useShortcut } from '@/lib/shortcuts'
 import type { PayMode, Payment } from '@/types'
+import { useHotel } from '@/pages/hotel/hotelStore'
+import { RoomGuestPicker } from '@/pages/hotel/RoomGuestPicker'
+import { roomCredit, useIsHotelOutlet } from '@/pages/hotel/roomBilling'
 
-export type SettleMethod = 'Cash' | 'UPI' | 'Credit Card' | 'Debit Card' | 'Split'
+export type SettleMethod = 'Cash' | 'UPI' | 'Credit Card' | 'Debit Card' | 'Room' | 'Split'
 const METHODS: { id: SettleMethod; label: string; icon: React.ReactNode; hint: string }[] = [
   { id: 'Cash', label: 'Cash', icon: <Banknote />, hint: 'Tender & change' },
   { id: 'UPI', label: 'UPI', icon: <QrCode />, hint: 'GPay · PhonePe · Paytm' },
   { id: 'Credit Card', label: 'Credit Card', icon: <CreditCard />, hint: 'EDC terminal' },
   { id: 'Debit Card', label: 'Debit Card', icon: <Wallet />, hint: 'EDC terminal' },
+  { id: 'Room', label: 'Charge to Room', icon: <BedDouble />, hint: 'Post to hotel guest folio' },
   { id: 'Split', label: 'Split', icon: <SplitSquareHorizontal />, hint: 'Multiple modes' },
 ]
 const SPLIT_MODES: PayMode[] = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Wallet', 'Due']
@@ -36,6 +40,13 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
   const [upiRef, setUpiRef] = useState('')
   const [change, setChange] = useState(0)
   const [print, setPrint] = useState(false)
+  const [signed, setSigned] = useState(false)
+  const [pickRoom, setPickRoom] = useState(false)
+  const isHotel = useIsHotelOutlet(order?.outletId)
+  const hotelCfg = useHotel((s) => s.config)
+  const stay = useHotel((s) => (order?.resId ? s.reservations.find((r) => r.id === order.resId && r.status === 'In House') : undefined))
+  const methods = METHODS.filter((m) => m.id !== 'Room' || isHotel)
+  const splitModes = SPLIT_MODES.concat(stay ? ['Room'] : [])
   const tenderRef = useRef<HTMLInputElement>(null)
 
   const t = useMemo(() => (order ? computeTotals(order) : null), [order])
@@ -50,6 +61,7 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
     setCard('idle')
     setUpiRef('')
     setChange(0)
+    setSigned(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, orderId])
 
@@ -61,24 +73,35 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
   const splitRemaining = Math.round((total - splitPaid) * 100) / 100
   const cashGiven = parseFloat(tendered) || 0
   const cashShort = method === 'Cash' && tendered !== '' && cashGiven < total
+  const roomPart = method === 'Room' ? total : method === 'Split' ? rows.filter((r) => r.mode === 'Room').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0) : 0
+  const credit = stay ? roomCredit(stay, roomPart, hotelCfg) : null
+  const roomOk = roomPart === 0 || (!!stay && !!credit?.ok && signed)
 
   const canComplete =
     method === 'Split' ? Math.abs(splitRemaining) < 0.01 && rows.every((r) => (parseFloat(r.amount) || 0) > 0)
       : method === 'Cash' ? !cashShort
         : method === 'Credit Card' || method === 'Debit Card' ? card === 'approved'
-          : true
+          : method === 'Room' ? !!stay
+            : true
+  const canSettle = canComplete && roomOk
 
   const complete = () => {
+    if (order && canComplete && !roomOk) {
+      toast.warning(!stay ? 'Select the hotel guest' : !credit?.ok ? 'Room credit limit exceeded' : 'Guest signature required', !stay ? 'Pick the room to charge' : !credit?.ok ? `Folio would reach ${inr(credit!.after)} (limit ${inr(credit!.limit)})` : 'Tick “guest signed the bill”')
+      return
+    }
     if (!order || !canComplete) {
-      if (method === 'Split') toast.warning('Split amounts must match the bill', `Remaining ${inr(splitRemaining, true)}`)
+      if (method === 'Room') toast.warning('Select the hotel guest')
+      else if (method === 'Split') toast.warning('Split amounts must match the bill', `Remaining ${inr(splitRemaining, true)}`)
       else if (method.includes('Card')) toast.warning('Waiting for card approval', 'Send the amount to the EDC terminal first')
       else if (cashShort) toast.warning('Tendered amount is less than bill')
       return
     }
     let payments: Omit<Payment, 'at'>[]
-    if (method === 'Split') payments = rows.map((r) => ({ mode: r.mode, amount: parseFloat(r.amount) || 0 }))
+    if (method === 'Split') payments = rows.map((r) => ({ mode: r.mode, amount: parseFloat(r.amount) || 0, ref: r.mode === 'Room' ? `Room ${order.roomNo} · ${stay?.no}` : undefined }))
     else if (method === 'UPI') payments = [{ mode: 'UPI', amount: total, ref: upiRef || 'UPI' + Math.floor(1e8 + Math.random() * 9e8) }]
     else if (method === 'Cash') payments = [{ mode: 'Cash', amount: total }]
+    else if (method === 'Room') payments = [{ mode: 'Room', amount: total, ref: `Room ${order.roomNo} · ${stay?.no}` }]
     else payments = [{ mode: method, amount: total, ref: 'AUTH' + Math.floor(1000 + Math.random() * 9000) }]
     setChange(method === 'Cash' && cashGiven > total ? cashGiven - total : 0)
     settleOrder(order.id, payments)
@@ -121,7 +144,7 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
             <>
               <Button className="mr-auto" onClick={() => setStep(0)}>Back</Button>
               <Button onClick={onClose}>Cancel</Button>
-              <Button variant="accent" kbd="Enter" disabled={!canComplete} onClick={complete} icon={<CheckCircle2 className="size-4" />}>Complete settlement · {inr(total)}</Button>
+              <Button variant="accent" kbd="Enter" disabled={!canSettle} onClick={complete} icon={<CheckCircle2 className="size-4" />}>Complete settlement · {inr(total)}</Button>
             </>
           ) : (
             <>
@@ -153,14 +176,14 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
                 ))}
               </div>
             </div>
-            <BillSummary t={t} discountLabel={order.discount.type === 'pct' && order.discount.value ? `${order.discount.value}%` : undefined} serviceRate={order.serviceCharge} />
+            <BillSummary t={t} trayLabel={order.type === 'Room Service'} discountLabel={order.discount.type === 'pct' && order.discount.value ? `${order.discount.value}%` : undefined} serviceRate={order.serviceCharge} />
           </div>
         )}
 
         {step === 1 && (
           <div className="grid gap-5 px-5 py-4 md:grid-cols-[220px_1fr]" onKeyDown={(e) => { if (e.key === "Enter" && (e.target as HTMLElement).tagName === "BUTTON") { e.preventDefault(); complete() } }}>
             <div className="space-y-1.5">
-              {METHODS.map((m) => (
+              {methods.map((m) => (
                 <button key={m.id} onClick={() => { setMethod(m.id); if (m.id === 'Split') setRows([{ mode: 'Cash', amount: '' }]) }}
                   className={cn('flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition',
                     method === m.id ? 'border-brand-400 bg-brand-50/60 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50')}>
@@ -195,6 +218,26 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
                 </div>
               )}
 
+              {method === 'Room' && (
+                <div className="space-y-3">
+                  {stay ? (
+                    <div className="flex items-center gap-3 rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+                      <span className="flex size-11 items-center justify-center rounded-xl bg-sky-600 text-[14px] font-bold text-white">{order.roomNo}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-slate-900">{stay.guest.name}</p>
+                        <p className="text-[12px] text-slate-500">{stay.no} · folio {inr(credit!.balance)} → <b className={credit!.ok ? 'text-slate-700' : 'text-rose-600'}>{inr(credit!.after)}</b> (limit {inr(credit!.limit)})</p>
+                      </div>
+                      <Button size="sm" onClick={() => setPickRoom(true)}>Change</Button>
+                    </div>
+                  ) : (
+                    <Button variant="primary" icon={<BedDouble className="size-3.5" />} onClick={() => setPickRoom(true)}>Select hotel guest</Button>
+                  )}
+                  {stay && !credit!.ok && <p className="text-[12px] text-rose-600">This bill would take the guest over the room credit limit. Collect payment or ask the front desk to take a deposit.</p>}
+                  {stay && <Checkbox checked={signed} onChange={setSigned} label="Guest signed the bill (room number & signature)" />}
+                </div>
+              )}
+              {method === 'Split' && roomPart > 0 && stay && <Checkbox className="mb-3" checked={signed} onChange={setSigned} label={`Guest signed for ${inr(roomPart)} on Room ${order.roomNo}`} />}
+
               {method === 'UPI' && (
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <div className="rounded-xl border border-slate-200 bg-white p-2"><MiniQR seed={order.no + total} size={132} /></div>
@@ -228,7 +271,7 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
                   {rows.map((r, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Select value={r.mode} className="w-36" onChange={(e) => setRows(rows.map((x, k) => (k === i ? { ...x, mode: e.target.value as PayMode } : x)))}>
-                        {SPLIT_MODES.map((m) => <option key={m}>{m}</option>)}
+                        {splitModes.map((m) => <option key={m}>{m}</option>)}
                       </Select>
                       <Input type="number" placeholder="Amount" value={r.amount} className="flex-1" autoFocus={i === rows.length - 1}
                         onChange={(e) => setRows(rows.map((x, k) => (k === i ? { ...x, amount: e.target.value } : x)))}
@@ -283,6 +326,8 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
           </div>
         )}
       </Modal>
+      <RoomGuestPicker open={pickRoom} onClose={() => setPickRoom(false)} outletId={order.outletId} amount={total} title="Charge bill to room"
+        onPick={(g) => { useStore.getState().updateOrder(order.id, { resId: g.res.id, roomId: g.room?.id, roomNo: g.room?.no, customerName: order.customerName ?? g.res.guest.name }); setPickRoom(false) }} />
       <PrintPreviewModal open={print} onClose={() => setPrint(false)} title="Print receipt" subtitle={order.billNo}>
         {(w) => <ThermalReceipt order={order} width={w} />}
       </PrintPreviewModal>
@@ -290,7 +335,7 @@ export function SettlementModal({ orderId, open, onClose, onSettled, initialMeth
   )
 }
 
-export function BillSummary({ t, discountLabel, serviceRate, className }: { t: ReturnType<typeof computeTotals>; discountLabel?: string; serviceRate?: number; className?: string }) {
+export function BillSummary({ t, discountLabel, serviceRate, className, trayLabel }: { t: ReturnType<typeof computeTotals>; discountLabel?: string; serviceRate?: number; className?: string; trayLabel?: boolean }) {
   const Row = ({ l, r, cls }: { l: React.ReactNode; r: React.ReactNode; cls?: string }) => <div className={cn('flex justify-between py-0.5', cls)}><span>{l}</span><span className="tabular">{r}</span></div>
   return (
     <div className={cn('rounded-xl bg-slate-50 p-3 text-[12.5px] text-slate-600', className)}>
@@ -299,7 +344,7 @@ export function BillSummary({ t, discountLabel, serviceRate, className }: { t: R
       {t.service > 0 && <Row l={`Service charge (${serviceRate}%)`} r={inr(t.service, true)} />}
       <Row l="CGST" r={inr(t.cgst, true)} />
       <Row l="SGST" r={inr(t.sgst, true)} />
-      {t.delivery > 0 && <Row l="Delivery charge" r={inr(t.delivery, true)} />}
+      {t.delivery > 0 && <Row l={trayLabel ? 'Tray charge' : 'Delivery charge'} r={inr(t.delivery, true)} />}
       {Math.abs(t.roundOff) > 0.004 && <Row l="Round off" r={(t.roundOff > 0 ? '+' : '−') + inr(Math.abs(t.roundOff), true)} />}
       <div className="mt-2 flex items-end justify-between border-t border-dashed border-slate-300 pt-2">
         <span className="font-semibold text-slate-800">Grand total</span>

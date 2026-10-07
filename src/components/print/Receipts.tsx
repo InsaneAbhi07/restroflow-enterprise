@@ -31,7 +31,7 @@ export function ThermalReceipt({ order, width = '80mm', duplicate }: { order: Or
       <TDash />
       <TRow l={`Bill No: ${order.billNo ?? 'DRAFT'}`} r={fmtDate(order.settledAt ?? Date.now())} />
       <TRow l={`Order: ${order.no}`} r={fmtTime(order.settledAt ?? Date.now())} />
-      <TRow l={`${order.type}${order.tableLabel ? ' • Table ' + order.tableLabel : ''}`} r={order.pax ? `Pax: ${order.pax}` : ''} />
+      <TRow l={`${order.type}${order.tableLabel ? ' • Table ' + order.tableLabel : ''}${order.roomNo ? ' • Room ' + order.roomNo : ''}`} r={order.pax ? `Pax: ${order.pax}` : ''} />
       {order.waiterName && <TRow l={`Captain: ${order.waiterName}`} r={order.source !== 'POS' ? order.source : ''} />}
       <TRow l={`Cashier: ${order.cashier ?? '-'}`} />
       {order.customerName && <TRow l={`Cust: ${order.customerName}`} r={order.customerPhone ?? ''} />}
@@ -55,14 +55,15 @@ export function ThermalReceipt({ order, width = '80mm', duplicate }: { order: Or
       {t.service > 0 && <TRow l={`Service Charge (${order.serviceCharge}%)`} r={num2(t.service)} />}
       <TRow l={`CGST @${gstRate / 2}%`} r={num2(t.cgst)} />
       <TRow l={`SGST @${gstRate / 2}%`} r={num2(t.sgst)} />
-      {t.delivery > 0 && <TRow l="Delivery Charge" r={num2(t.delivery)} />}
+      {t.delivery > 0 && <TRow l={order.type === 'Room Service' ? 'Tray Charge' : 'Delivery Charge'} r={num2(t.delivery)} />}
       {Math.abs(t.roundOff) > 0.001 && <TRow l="Round Off" r={(t.roundOff > 0 ? '+' : '') + num2(t.roundOff)} />}
       <TDash />
       <TRow l="GRAND TOTAL" r={'₹ ' + num2(t.total)} bold className="text-[13px]" />
       <TDash />
       {order.payments.length > 0 ? (
         <>
-          {order.payments.map((p, i) => <TRow key={i} l={`Paid by ${p.mode}`} r={num2(p.amount)} />)}
+          {order.payments.map((p, i) => <TRow key={i} l={p.mode === 'Room' ? `Charged to ${p.ref?.split(' · ')[0] ?? 'Room'}` : `Paid by ${p.mode}`} r={num2(p.amount)} />)}
+          {order.payments.some((p) => p.mode === 'Room') && <TRow l="Guest signature: ____________" r="" />}
           {paid > t.total && <TRow l="Change Returned" r={num2(paid - t.total)} />}
           <TDash />
         </>
@@ -82,7 +83,7 @@ export function KotTicket({ kot, width = '80mm' }: { kot: Kot; width?: '80mm' | 
       <TCenter className="text-[13px] font-bold">KOT • {kot.station}</TCenter>
       <TCenter className="text-[10px]">{outlet?.short}</TCenter>
       <TDash />
-      <TRow l={<span className="text-[15px] font-bold">{kot.no}</span>} r={<span className="text-[15px] font-bold">{kot.type === 'Dine-in' ? 'T: ' + kot.tableLabel : kot.type}</span>} />
+      <TRow l={<span className="text-[15px] font-bold">{kot.no}</span>} r={<span className="text-[15px] font-bold">{kot.type === 'Dine-in' ? 'T: ' + kot.tableLabel : kot.type === 'Room Service' ? 'ROOM ' + kot.tableLabel.replace(/^R/, '') : kot.type}</span>} />
       <TRow l={`Order: ${kot.orderNo}`} r={fmtTime(kot.createdAt)} />
       <TRow l={`By: ${kot.waiterName}`} r={kot.source} />
       {kot.priority && <TCenter className="my-1 border border-black font-bold">*** PRIORITY ***</TCenter>}

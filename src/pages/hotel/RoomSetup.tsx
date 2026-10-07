@@ -246,6 +246,8 @@ function PoliciesForm({ editable }: { editable: boolean }) {
           <Field label="Standard check-out"><Input type="time" value={c.checkOutTime} disabled={!editable} onChange={(e) => set('checkOutTime', e.target.value)} /></Field>
           <Field label="Early check-in fee"><Input type="number" value={c.earlyCheckInFee} disabled={!editable} onChange={(e) => set('earlyCheckInFee', n(e.target.value))} suffix="₹" /></Field>
           <Field label="Late check-out fee"><Input type="number" value={c.lateCheckOutFee} disabled={!editable} onChange={(e) => set('lateCheckOutFee', n(e.target.value))} suffix="₹" /></Field>
+          <Field label="Room-service tray charge" hint="Added to every in-room order"><Input type="number" value={c.trayCharge} disabled={!editable} onChange={(e) => set('trayCharge', n(e.target.value))} suffix="₹" /></Field>
+          <Field label="Room credit limit" hint="Max folio balance for “Charge to Room”"><Input type="number" value={c.roomCreditLimit} disabled={!editable} onChange={(e) => set('roomCreditLimit', n(e.target.value))} suffix="₹" /></Field>
           <Field label="Invoice prefix" className="sm:col-span-2"><Input value={c.invoicePrefix} disabled={!editable} onChange={(e) => set('invoicePrefix', e.target.value)} /></Field>
         </div>
       </Card>

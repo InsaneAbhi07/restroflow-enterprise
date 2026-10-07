@@ -7,8 +7,8 @@ import { FoodArt, QtyStepper } from './bits'
 
 export type VegFilter = 'all' | 'veg' | 'nonveg'
 
-export function MenuScreen({ items, categories, outletName, tableLabel, embedded, veg, setVeg, qtyOf, onAdd, onDec, onBack, cartCount, cartTotal, onViewCart, hasActiveOrder, onTrack }: {
-  items: MenuItem[]; categories: MenuCategory[]; outletName: string; tableLabel: string; embedded?: boolean
+export function MenuScreen({ items, categories, outletName, tableLabel, inRoom, embedded, veg, setVeg, qtyOf, onAdd, onDec, onBack, cartCount, cartTotal, onViewCart, hasActiveOrder, onTrack }: {
+  items: MenuItem[]; categories: MenuCategory[]; outletName: string; tableLabel: string; inRoom?: boolean; embedded?: boolean
   veg: VegFilter; setVeg: (v: VegFilter) => void
   qtyOf: (itemId: string) => number; onAdd: (m: MenuItem) => void; onDec: (m: MenuItem) => void
   onBack: () => void; cartCount: number; cartTotal: number; onViewCart: () => void; hasActiveOrder: boolean; onTrack: () => void
@@ -49,7 +49,7 @@ export function MenuScreen({ items, categories, outletName, tableLabel, embedded
           <button onClick={onBack} className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"><ChevronLeft className="size-5" /></button>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-navy-900">{outletName}</div>
-            <div className="text-[11.5px] font-medium text-brand-600">Table {tableLabel} · Dine-in</div>
+            <div className="text-[11.5px] font-medium text-brand-600">{tableLabel} · {inRoom ? 'In-room dining' : 'Dine-in'}</div>
           </div>
           {hasActiveOrder && <button onClick={onTrack} className="rounded-full bg-brand-50 px-3 py-1.5 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">Track order</button>}
         </div>

@@ -2,11 +2,11 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Order } from '@/types'
 
-export type QuickPay = 'Cash' | 'Card' | 'UPI' | 'Due' | 'Part'
+export type QuickPay = 'Cash' | 'Card' | 'UPI' | 'Due' | 'Part' | 'Room'
 export type PosView = 'grid' | 'compact'
 
 /** Fields captured before the first item is added (no store order exists yet) */
-export type PendingMeta = Partial<Pick<Order, 'type' | 'source' | 'waiterId' | 'waiterName' | 'pax' | 'customerId' | 'customerName' | 'customerPhone' | 'note' | 'serviceCharge' | 'deliveryCharge' | 'discount'>>
+export type PendingMeta = Partial<Pick<Order, 'type' | 'source' | 'waiterId' | 'waiterName' | 'pax' | 'customerId' | 'customerName' | 'customerPhone' | 'note' | 'serviceCharge' | 'deliveryCharge' | 'discount' | 'roomId' | 'roomNo' | 'resId'>>
 
 interface PosUI {
   activeId: string | null

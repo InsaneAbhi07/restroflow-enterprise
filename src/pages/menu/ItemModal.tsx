@@ -170,6 +170,9 @@ export function ItemModal({ open, item, onClose }: { open: boolean; item: MenuIt
                 {label}<Toggle size="sm" checked={!!d[k]} onChange={(v) => set(k, v)} />
               </div>
             ))}
+            <div className="flex items-center justify-between text-[12.5px] text-slate-700" title="Shown on the hotel in-room QR menu">
+              In-room dining 🛏️<Toggle size="sm" checked={d.roomService !== false} onChange={(v) => set('roomService', v)} />
+            </div>
           </div>
         </div>
       </div>
