@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronsLeft, Smartphone, Presentation } from 'lucide-react'
+import { ChevronDown, ChevronsLeft, Smartphone, Presentation, ScanLine } from 'lucide-react'
 import { NAV } from './nav'
 import { DynIcon } from '@/components/ui'
 import { cn } from '@/lib/format'
@@ -23,6 +23,7 @@ export function Sidebar() {
   const [closed, setClosed] = useState<Record<string, boolean>>({})
   const openMobile = useUI((s) => s.setMobilePreview)
   const setScenarios = useUI((s) => s.setScenarios)
+  const openQrScan = useUI((s) => s.setQrScan)
 
   const badge = (b?: string) => {
     if (b === 'kot') return kots.filter((k) => outletIds.includes(k.outletId) && (k.status === 'New' || k.status === 'Preparing')).length
@@ -85,6 +86,10 @@ export function Sidebar() {
         <button onClick={() => openMobile(true)} title="Staff Mobile App"
           className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-navy-200/80 hover:bg-white/5 hover:text-white">
           <Smartphone className="size-4 shrink-0 text-brand-300" />{!collapsed && 'Staff Mobile App'}
+        </button>
+        <button onClick={() => openQrScan(true)} title="Scan QR Menu"
+          className="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium text-navy-200/80 hover:bg-white/5 hover:text-white">
+          <ScanLine className="size-4 shrink-0 text-violet-300" />{!collapsed && 'Scan QR Menu'}
         </button>
         {role.id === 'r_owner' && (
           <button onClick={() => setScenarios(true)} title="Demo Scenarios"

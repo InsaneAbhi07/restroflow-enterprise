@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { ScanQrModal } from './ScanQrModal'
 import { AccessDenied, DemoPanel, GlobalSearch, MobilePreviewModal, PresentationBar, ShortcutHelp, Toaster } from './Overlays'
 import { useUI } from './uiStore'
 import { ALL_NAV, moduleForPath } from './nav'
@@ -84,6 +85,7 @@ function Shell() {
       <ShortcutHelp />
       <DemoPanel />
       <MobilePreviewModal />
+      <ScanQrModal />
       <DemoScenarios />
       <PresentationBar />
       <Toaster />
